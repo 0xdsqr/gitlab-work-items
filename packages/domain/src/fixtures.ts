@@ -1,0 +1,53 @@
+import type { Workspace } from "./work-item.ts"
+
+export const mockWorkspace: Workspace = {
+  user: { id: 7, username: "alex", name: "Alex Morgan" },
+  items: [
+    {
+      id: "gid://gitlab/WorkItem/101",
+      iid: 42,
+      type: "EPIC",
+      title: "Unify the developer work queue",
+      description:
+        "Create one focused place to triage work across projects. The first milestone covers personal queues, group navigation, and work-item details.",
+      state: "OPEN",
+      reference: "acme/platform&42",
+      namespace: "acme/platform",
+      author: "mira",
+      assignees: ["alex", "mira"],
+      labels: ["product", "workflow"],
+      webUrl: "https://gitlab.example.com/groups/acme/platform/-/work_items/42",
+      updatedAt: "2026-07-15T13:20:00.000Z",
+    },
+    {
+      id: "gid://gitlab/WorkItem/102",
+      iid: 184,
+      type: "ISSUE",
+      title: "Add saved views for assigned work",
+      description: "Persist filters by namespace, label, milestone, and assignee.",
+      state: "OPEN",
+      reference: "acme/console#184",
+      namespace: "acme/console",
+      author: "alex",
+      assignees: ["alex"],
+      labels: ["frontend", "workflow"],
+      webUrl: "https://gitlab.example.com/acme/console/-/issues/184",
+      updatedAt: "2026-07-14T18:05:00.000Z",
+    },
+    {
+      id: "gid://gitlab/WorkItem/103",
+      iid: 19,
+      type: "TASK",
+      title: "Decode hierarchy and health widgets",
+      description: "Add GraphQL widget fragments without leaking GitLab transport shapes into the domain package.",
+      state: "OPEN",
+      reference: "acme/platform#19",
+      namespace: "acme/platform",
+      author: "mira",
+      assignees: ["alex"],
+      labels: ["api"],
+      webUrl: "https://gitlab.example.com/acme/platform/-/work_items/19",
+      updatedAt: "2026-07-12T09:42:00.000Z",
+    },
+  ],
+}
