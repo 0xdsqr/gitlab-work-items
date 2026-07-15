@@ -4,7 +4,7 @@ export const workflowColumns = [
   { id: "backlog", label: "Backlog", hint: "Open, not scheduled", color: "#89888d", labelName: null },
   { id: "ready", label: "Ready", hint: "Prepared to start", color: "#63a6e9", labelName: "workflow::ready" },
   { id: "doing", label: "In progress", hint: "Actively moving", color: "#d99530", labelName: "workflow::in progress" },
-  { id: "review", label: "Review", hint: "Waiting for a verdict", color: "#ac93e6", labelName: "workflow::review" },
+  { id: "review", label: "Review", hint: "Waiting for a verdict", color: "#e9be74", labelName: "workflow::review" },
   { id: "closed", label: "Closed", hint: "Finished work", color: "#52b87a", labelName: null },
 ] as const
 
