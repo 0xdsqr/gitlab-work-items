@@ -16,6 +16,13 @@ export type WorkItemType = typeof WorkItemType.Type
 export const WorkItemState = Schema.Literals(["OPEN", "CLOSED"])
 export type WorkItemState = typeof WorkItemState.Type
 
+export const WorkItemLabel = Schema.Struct({
+  name: Schema.String,
+  color: Schema.NullOr(Schema.String),
+  textColor: Schema.NullOr(Schema.String),
+})
+export type WorkItemLabel = typeof WorkItemLabel.Type
+
 export const WorkItem = Schema.Struct({
   id: Schema.String,
   projectId: Schema.Number,
@@ -28,7 +35,7 @@ export const WorkItem = Schema.Struct({
   namespace: Schema.String,
   author: Schema.String,
   assignees: Schema.Array(Schema.String),
-  labels: Schema.Array(Schema.String),
+  labels: Schema.Array(WorkItemLabel),
   webUrl: Schema.String,
   updatedAt: Schema.String,
 })

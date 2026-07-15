@@ -1,11 +1,11 @@
 import type { WorkItem } from "./work-item.ts"
 
 export const workflowColumns = [
-  { id: "backlog", label: "Backlog", hint: "Open, not scheduled", color: "#aa96bd", labelName: null },
-  { id: "ready", label: "Ready", hint: "Prepared to start", color: "#c4a7e7", labelName: "workflow::ready" },
-  { id: "doing", label: "In progress", hint: "Actively moving", color: "#a78bfa", labelName: "workflow::in progress" },
-  { id: "review", label: "Review", hint: "Waiting for a verdict", color: "#f0abfc", labelName: "workflow::review" },
-  { id: "closed", label: "Closed", hint: "Finished work", color: "#6ee7b7", labelName: null },
+  { id: "backlog", label: "Backlog", hint: "Open, not scheduled", color: "#89888d", labelName: null },
+  { id: "ready", label: "Ready", hint: "Prepared to start", color: "#63a6e9", labelName: "workflow::ready" },
+  { id: "doing", label: "In progress", hint: "Actively moving", color: "#d99530", labelName: "workflow::in progress" },
+  { id: "review", label: "Review", hint: "Waiting for a verdict", color: "#ac93e6", labelName: "workflow::review" },
+  { id: "closed", label: "Closed", hint: "Finished work", color: "#52b87a", labelName: null },
 ] as const
 
 export type WorkflowColumnId = (typeof workflowColumns)[number]["id"]
@@ -20,7 +20,7 @@ export const workflowLabels = Object.values(labelAliases).flat()
 
 export const workflowColumnOf = (item: WorkItem): WorkflowColumnId => {
   if (item.state === "CLOSED") return "closed"
-  const labels = new Set(item.labels.map((label) => label.toLowerCase()))
+  const labels = new Set(item.labels.map((label) => label.name.toLowerCase()))
   const matched = (Object.entries(labelAliases) as readonly ["ready" | "doing" | "review", readonly string[]][]).find(
     ([, aliases]) => aliases.some((alias) => labels.has(alias)),
   )
@@ -46,7 +46,9 @@ export const workflowTransition = (item: WorkItem, target: WorkflowColumnId): Wo
     return { stateEvent: item.state === "CLOSED" ? null : "close", addLabels: [], removeLabels: [] }
 
   const column = workflowColumns.find((candidate) => candidate.id === target)
-  const existingWorkflowLabels = item.labels.filter((label) => workflowLabels.includes(label.toLowerCase()))
+  const existingWorkflowLabels = item.labels
+    .map((label) => label.name)
+    .filter((label) => workflowLabels.includes(label.toLowerCase()))
   return {
     stateEvent: item.state === "CLOSED" ? "reopen" : null,
     addLabels: column?.labelName ? [column.labelName] : [],
@@ -60,9 +62,12 @@ export const applyWorkflowTransition = (item: WorkItem, target: WorkflowColumnId
   return {
     ...item,
     state: target === "closed" ? "CLOSED" : "OPEN",
-    labels: [...item.labels.filter((label) => !removed.has(label.toLowerCase())), ...transition.addLabels].filter(
+    labels: [
+      ...item.labels.filter((label) => !removed.has(label.name.toLowerCase())),
+      ...transition.addLabels.map((name) => ({ name, color: null, textColor: null })),
+    ].filter(
       (label, index, labels) =>
-        labels.findIndex((candidate) => candidate.toLowerCase() === label.toLowerCase()) === index,
+        labels.findIndex((candidate) => candidate.name.toLowerCase() === label.name.toLowerCase()) === index,
     ),
   }
 }

@@ -31,16 +31,17 @@ export const Overview = ({
   onCreate: () => void
 }) => {
   const [createHovered, setCreateHovered] = useState(false)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const open = items.filter((item) => item.state === "OPEN")
   const closed = items.length - open.length
   const doing = open.filter((item) =>
-    item.labels.some((label) => ["workflow::in progress", "workflow::doing"].includes(label.toLowerCase())),
+    item.labels.some((label) => ["workflow::in progress", "workflow::doing"].includes(label.name.toLowerCase())),
   ).length
-  const review = open.filter((item) => item.labels.some((label) => label.toLowerCase().includes("review"))).length
+  const review = open.filter((item) => item.labels.some((label) => label.name.toLowerCase().includes("review"))).length
   const bodyHeight = Math.max(4, height - 3)
   const listWidth = width >= 92 ? Math.max(42, Math.floor(width * 0.58)) : width
   const detailWidth = Math.max(1, width - listWidth - 1)
-  const capacity = Math.max(1, Math.floor((bodyHeight - 1) / 3))
+  const capacity = Math.max(1, Math.floor((bodyHeight - 1) / 2))
   const start = visibleWindowStart(items.length, capacity, selectedIndex)
   const selected = items[selectedIndex] ?? null
 
@@ -106,23 +107,27 @@ export const Overview = ({
               return (
                 <box
                   key={item.id}
-                  height={3}
+                  height={2}
                   paddingLeft={1}
                   paddingRight={1}
-                  backgroundColor={active ? colors.selected : colors.background}
+                  backgroundColor={active ? colors.selected : hoveredIndex === index ? colors.panel : colors.background}
                   onMouseDown={() => onSelect(index)}
+                  onMouseOver={() => setHoveredIndex(index)}
+                  onMouseOut={() => setHoveredIndex((current) => (current === index ? null : current))}
                   flexDirection="column"
                 >
                   <text fg={colors.text} attributes={active ? TextAttributes.BOLD : 0}>
                     <span fg={active ? colors.accent : colors.border}>{active ? "▌" : " "}</span>
-                    <span fg={typeColor(item)}>{` ${item.type.toLowerCase()} `}</span>
-                    {ellipsis(item.title, Math.max(8, listWidth - 20))}
+                    <span fg={typeColor(item)}>{item.state === "CLOSED" ? "×" : item.type === "EPIC" ? "◆" : "⊙"}</span>
+                    <span fg={colors.active}>{` ${ellipsis(item.reference, 18)} `}</span>
+                    {ellipsis(item.title, Math.max(8, listWidth - Math.min(18, item.reference.length) - 14))}
+                    <span fg={colors.subtle}>{`  ${relativeAge(item.updatedAt)}`}</span>
                   </text>
-                  <text
-                    fg={colors.muted}
-                  >{`${ellipsis(item.reference, Math.max(8, listWidth - 16))}  ·  ${relativeAge(item.updatedAt)}`}</text>
-                  <text>
-                    <LabelChips labels={item.labels} width={Math.max(8, listWidth - 4)} />
+                  <text selectable={false}>
+                    <span
+                      fg={colors.muted}
+                    >{`  ${item.assignees.map((name) => `@${name}`).join(" ") || `@${item.author}`}  `}</span>
+                    <LabelChips labels={item.labels} width={Math.max(8, listWidth - 20)} />
                   </text>
                 </box>
               )
@@ -139,26 +144,26 @@ export const Overview = ({
               </text>
               {selected ? (
                 <>
-                  <text fg={typeColor(selected)}>{`${selected.type.toLowerCase()}  ${selected.reference}`}</text>
                   <text fg={colors.text} attributes={TextAttributes.BOLD}>
                     {ellipsis(selected.title, Math.max(10, detailWidth - 2))}
                   </text>
-                  <text
-                    fg={colors.muted}
-                  >{`${selected.namespace}  ·  updated ${relativeAge(selected.updatedAt)} ago`}</text>
-                  <box height={1} />
+                  <text fg={colors.muted}>
+                    <span fg={typeColor(selected)}>{selected.type.toLowerCase()}</span>
+                    {`  ${selected.reference}  ·  updated ${relativeAge(selected.updatedAt)} ago`}
+                  </text>
+                  <text>
+                    <LabelChips labels={selected.labels} width={Math.max(8, detailWidth - 2)} />
+                  </text>
+                  <text fg={colors.border}>{"─".repeat(Math.max(1, detailWidth - 2))}</text>
                   <text fg={colors.text}>
                     {ellipsis(selected.description || "No description.", Math.max(10, detailWidth - 2))}
                   </text>
                   <box height={1} />
+                  <text fg={colors.muted}>{`Project    ${selected.namespace}`}</text>
                   <text fg={colors.muted}>{`Author     @${selected.author}`}</text>
                   <text
                     fg={colors.muted}
                   >{`Assignees  ${selected.assignees.map((name) => `@${name}`).join(", ") || "none"}`}</text>
-                  <box height={1} />
-                  <text>
-                    <LabelChips labels={selected.labels} width={Math.max(8, detailWidth - 2)} />
-                  </text>
                   <box height={1} />
                   <text fg={colors.active}>o Open in GitLab</text>
                   <text fg={selected.state === "OPEN" ? colors.error : colors.success}>

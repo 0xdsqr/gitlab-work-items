@@ -5,6 +5,7 @@ import {
   workflowTransition,
   type WorkflowColumnId,
   type WorkItem,
+  type WorkItemLabel,
   type WorkItemScope,
   type Workspace,
 } from "@github-work-items/domain"
@@ -18,6 +19,14 @@ const RawUser = Schema.Struct({
   name: Schema.String,
 })
 
+const RawLabel = Schema.Struct({
+  name: Schema.String,
+  color: Schema.String,
+  text_color: Schema.String,
+})
+
+const RawIssueLabel = Schema.Union([Schema.String, RawLabel])
+
 const RawIssue = Schema.Struct({
   id: Schema.Number,
   project_id: Schema.Number,
@@ -25,7 +34,7 @@ const RawIssue = Schema.Struct({
   title: Schema.String,
   description: Schema.NullOr(Schema.String),
   state: Schema.String,
-  labels: Schema.Array(Schema.String),
+  labels: Schema.Array(RawIssueLabel),
   updated_at: Schema.String,
   issue_type: Schema.optional(Schema.String),
   web_url: Schema.String,
@@ -48,7 +57,18 @@ const workItemType = (type: string | undefined): WorkItem["type"] => {
   return "ISSUE"
 }
 
-const normalizeIssue = (issue: typeof RawIssue.Type): WorkItem => ({
+const normalizeLabel = (label: typeof RawIssueLabel.Type, previous: readonly WorkItemLabel[]): WorkItemLabel => {
+  if (typeof label !== "string") return { name: label.name, color: label.color, textColor: label.text_color }
+  return (
+    previous.find((candidate) => candidate.name.toLowerCase() === label.toLowerCase()) ?? {
+      name: label,
+      color: null,
+      textColor: null,
+    }
+  )
+}
+
+const normalizeIssue = (issue: typeof RawIssue.Type, previousLabels: readonly WorkItemLabel[] = []): WorkItem => ({
   id: String(issue.id),
   projectId: issue.project_id,
   iid: issue.iid,
@@ -60,7 +80,7 @@ const normalizeIssue = (issue: typeof RawIssue.Type): WorkItem => ({
   namespace: issue.references.full.replace(/[#&].*$/, ""),
   author: issue.author.username,
   assignees: issue.assignees.map((assignee) => assignee.username),
-  labels: [...issue.labels],
+  labels: issue.labels.map((label) => normalizeLabel(label, previousLabels)),
   webUrl: issue.web_url,
   updatedAt: issue.updated_at,
 })
@@ -102,7 +122,7 @@ export class GitLabClient extends Context.Service<
               Effect.flatMap(Schema.decodeUnknownEffect(GitLabUser)),
             ),
             items: request("listIssues", "GET", issuePathFor(scope, config.group), RawIssues).pipe(
-              Effect.map((issues) => issues.map(normalizeIssue)),
+              Effect.map((issues) => issues.map((issue) => normalizeIssue(issue))),
             ),
           },
           { concurrency: "unbounded" },
@@ -222,7 +242,7 @@ const request = <S extends Schema.Top>(
 
 const updateIssue = (operation: string, item: WorkItem, fields: RequestFields) =>
   request(operation, "PUT", `projects/${item.projectId}/issues/${item.iid}`, RawIssue, fields).pipe(
-    Effect.map(normalizeIssue),
+    Effect.map((issue) => normalizeIssue(issue, item.labels)),
   )
 
 export const loadWorkspace = (scope: WorkItemScope) =>

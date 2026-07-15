@@ -13,4 +13,8 @@ describe("GitLab configuration", () => {
   it("loads open and closed work for board lifecycle actions", () => {
     expect(issuePathFor("assigned", null)).toContain("state=all")
   })
+
+  it("requests GitLab label colors", () => {
+    expect(issuePathFor("assigned", null)).toContain("with_labels_details=true")
+  })
 })

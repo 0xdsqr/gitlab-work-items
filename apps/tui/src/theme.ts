@@ -1,4 +1,4 @@
-import type { WorkItem } from "@github-work-items/domain"
+import type { WorkItem, WorkItemLabel } from "@github-work-items/domain"
 
 export const colors = {
   background: "#18171d",
@@ -32,9 +32,23 @@ export const typeColor = (item: WorkItem) => {
   return colors.issue
 }
 
-export const labelColor = (label: string) => {
-  const hash = [...label].reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 7)
+const validHex = (value: string | null) => (value && /^#[\da-f]{6}$/i.test(value) ? value : null)
+
+export const labelColor = (label: WorkItemLabel) => {
+  const actual = validHex(label.color)
+  if (actual) return actual
+  const hash = [...label.name].reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 7)
   return labelPalette[hash % labelPalette.length] ?? labelPalette[0]
+}
+
+export const labelTextColor = (label: WorkItemLabel) => validHex(label.textColor) ?? colors.background
+
+export const darkerLabelColor = (label: WorkItemLabel) => {
+  const color = labelColor(label)
+  const channels = [color.slice(1, 3), color.slice(3, 5), color.slice(5, 7)].map((channel) =>
+    Math.max(0, Math.round(Number.parseInt(channel, 16) * 0.72)),
+  )
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`
 }
 
 export const ellipsis = (value: string, width: number) => {
