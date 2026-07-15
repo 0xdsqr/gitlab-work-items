@@ -7,7 +7,7 @@ import {
 } from "@github-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { Fragment, useState } from "react"
-import { colors, ellipsis, typeColor } from "../theme.ts"
+import { colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"
 import { visibleWindowStart, workItemDragSourceId, workItemIdFromDragRenderable } from "../ui-state.ts"
 import { LabelChips } from "./LabelChips.tsx"
 
@@ -174,7 +174,7 @@ export const Board = ({
                     >
                       <text selectable={false} fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
                         <span fg={dragging ? colors.success : colors.subtle}>⠿</span>
-                        <span fg={typeColor(item)}>{` ${item.type.toLowerCase()} `}</span>
+                        <span fg={typeColor(item)}>{` ${workItemTypeIcon(item)} ${item.type.toLowerCase()} `}</span>
                         <span fg={colors.subtle}>{relativeAge(item.updatedAt)}</span>
                       </text>
                       <text selectable={false} fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>

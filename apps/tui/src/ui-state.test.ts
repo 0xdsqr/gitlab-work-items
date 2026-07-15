@@ -21,6 +21,19 @@ describe("work item status filters", () => {
     expect(nextWorkItemStateFilter("closed")).toBe("all")
     expect(nextWorkItemStateFilter("all")).toBe("open")
   })
+
+  it("searches work-item content within the selected status", () => {
+    expect(filterWorkItems(mockWorkspace.items, "open", "saved views").map((item) => item.id)).toEqual([
+      "gid://gitlab/WorkItem/102",
+    ])
+    expect(filterWorkItems(mockWorkspace.items, "open", "workflow::review").map((item) => item.id)).toEqual([
+      "gid://gitlab/WorkItem/103",
+    ])
+    expect(filterWorkItems(mockWorkspace.items, "open", "keyboard")).toEqual([])
+    expect(filterWorkItems(mockWorkspace.items, "all", "keyboard").map((item) => item.id)).toEqual([
+      "gid://gitlab/WorkItem/104",
+    ])
+  })
 })
 
 describe("visibleWindowStart", () => {

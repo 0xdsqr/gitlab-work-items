@@ -6,7 +6,7 @@
     "build": "bun build src/index.tsx --target=bun --external '@opentui/*' --external react --external 'react/*' --external scheduler --external 'scheduler/*' --outdir=dist",
     "dev": "bun --watch src/index.tsx",
     "start": "bun src/index.tsx",
-    "test": "vitest run --passWithNoTests && bun test ./test/Board.mouse.bun.tsx",
+    "test": "vitest run --passWithNoTests && bun test ./test/Interactions.bun.tsx",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -6,8 +6,8 @@ import { colors } from "../theme.ts"
 export type Surface = "board" | "work-items"
 
 const surfaces: readonly { readonly id: Surface; readonly label: string; readonly key: string }[] = [
-  { id: "board", label: "Board", key: "1" },
-  { id: "work-items", label: "Work Items", key: "2" },
+  { id: "board", label: "▦ Board", key: "1" },
+  { id: "work-items", label: "≡ Work Items", key: "2" },
 ]
 
 export const scopes: readonly { readonly id: WorkItemScope; readonly label: string }[] = [

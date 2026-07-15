@@ -46,6 +46,8 @@ export const App = () => {
   const [scopeIndex, setScopeIndex] = useState(0)
   const [workItemsIndex, setWorkItemsIndex] = useState(0)
   const [workItemFilter, setWorkItemFilter] = useState<WorkItemStateFilter>("open")
+  const [workItemQuery, setWorkItemQuery] = useState("")
+  const [workItemQueryEditing, setWorkItemQueryEditing] = useState(false)
   const [boardColumnIndex, setBoardColumnIndex] = useState(0)
   const [boardCardIndex, setBoardCardIndex] = useState(0)
   const [items, setItems] = useState<readonly WorkItem[]>([])
@@ -60,7 +62,10 @@ export const App = () => {
   const [creating, setCreating] = useState(false)
   const scope = scopes[scopeIndex]?.id ?? "assigned"
   const grouped = useMemo(() => workItemsByColumn(items), [items])
-  const filteredItems = useMemo(() => filterWorkItems(items, workItemFilter), [items, workItemFilter])
+  const filteredItems = useMemo(
+    () => filterWorkItems(items, workItemFilter, workItemQuery),
+    [items, workItemFilter, workItemQuery],
+  )
   const boardColumn = workflowColumns[boardColumnIndex] ?? workflowColumns[0]
   const boardItems = grouped[boardColumn.id]
   const workItemsSelected = filteredItems[workItemsIndex] ?? null
@@ -113,6 +118,11 @@ export const App = () => {
 
   const selectWorkItemFilter = useCallback((next: WorkItemStateFilter) => {
     setWorkItemFilter(next)
+    setWorkItemsIndex(0)
+  }, [])
+
+  const updateWorkItemQuery = useCallback((query: string) => {
+    setWorkItemQuery(query)
     setWorkItemsIndex(0)
   }, [])
 
@@ -238,6 +248,10 @@ export const App = () => {
       if (key.name === "x") toggleState(summaryItem)
       return
     }
+    if (workItemQueryEditing) {
+      if (key.name === "escape" || key.name === "enter" || key.name === "return") setWorkItemQueryEditing(false)
+      return
+    }
     if (key.name === "q" || (key.ctrl && key.name === "c")) {
       renderer.destroy()
       return
@@ -271,6 +285,10 @@ export const App = () => {
       return
     }
     if (surface === "work-items") {
+      if (key.sequence === "/" || key.name === "/") {
+        setWorkItemQueryEditing(true)
+        return
+      }
       if (key.name === "f") {
         selectWorkItemFilter(nextWorkItemStateFilter(workItemFilter))
         return
@@ -325,7 +343,7 @@ export const App = () => {
         backgroundColor={colors.panel}
       >
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
-          <span fg={colors.gitlab}>◆</span> GitLab work items <span fg={colors.muted}>/ @{username}</span>
+          <span fg={colors.gitlab}>▲</span> GitLab work items <span fg={colors.muted}>/ @{username}</span>
         </text>
         <text fg={colors.muted}>
           <span fg={config.mock ? colors.warning : colors.success}>●</span>{" "}
@@ -371,9 +389,13 @@ export const App = () => {
           items={filteredItems}
           allItems={items}
           filter={workItemFilter}
+          query={workItemQuery}
+          queryEditing={workItemQueryEditing}
           selectedIndex={workItemsIndex}
           onSelect={setWorkItemsIndex}
           onFilterChange={selectWorkItemFilter}
+          onQueryChange={updateWorkItemQuery}
+          onQueryEditingChange={setWorkItemQueryEditing}
           onCreate={openCreate}
         />
       ) : (
@@ -400,7 +422,7 @@ export const App = () => {
         <text fg={colors.muted}>
           {surface === "board"
             ? "h/l columns  j/k cards  [/] move  enter summary  mouse drag/drop"
-            : "j/k select  f status  wheel scroll  n create"}
+            : "j/k select  / search  f status  n create"}
         </text>
         {width >= 88 ? <text fg={colors.muted}>o GitLab x close/reopen r sync q quit</text> : null}
       </box>

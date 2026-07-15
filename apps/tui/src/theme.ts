@@ -32,6 +32,12 @@ export const typeColor = (item: WorkItem) => {
   return colors.issue
 }
 
+export const workItemTypeIcon = (item: WorkItem) => {
+  if (item.type === "EPIC") return "◆"
+  if (item.type === "TASK") return "□"
+  return "○"
+}
+
 const validHex = (value: string | null) => (value && /^#[\da-f]{6}$/i.test(value) ? value : null)
 
 export const labelColor = (label: WorkItemLabel) => {

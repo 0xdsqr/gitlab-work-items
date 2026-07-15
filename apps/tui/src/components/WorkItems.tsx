@@ -1,8 +1,8 @@
 import { relativeAge, type WorkItem } from "@github-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { useState } from "react"
-import { colors, ellipsis, typeColor } from "../theme.ts"
-import { visibleWindowStart, workItemStateFilters, type WorkItemStateFilter } from "../ui-state.ts"
+import { colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"
+import { nextWorkItemStateFilter, visibleWindowStart, type WorkItemStateFilter } from "../ui-state.ts"
 import { LabelChips } from "./LabelChips.tsx"
 
 const Separator = ({ height }: { height: number }) => (
@@ -15,17 +15,19 @@ const Separator = ({ height }: { height: number }) => (
   </box>
 )
 
-const filterLabel = (filter: WorkItemStateFilter) => `${filter[0]?.toUpperCase()}${filter.slice(1)}`
-
 export const WorkItems = ({
   width,
   height,
   items,
   allItems,
   filter,
+  query,
+  queryEditing,
   selectedIndex,
   onSelect,
   onFilterChange,
+  onQueryChange,
+  onQueryEditingChange,
   onCreate,
 }: {
   width: number
@@ -33,22 +35,23 @@ export const WorkItems = ({
   items: readonly WorkItem[]
   allItems: readonly WorkItem[]
   filter: WorkItemStateFilter
+  query: string
+  queryEditing: boolean
   selectedIndex: number
   onSelect: (index: number) => void
   onFilterChange: (filter: WorkItemStateFilter) => void
+  onQueryChange: (query: string) => void
+  onQueryEditingChange: (editing: boolean) => void
   onCreate: () => void
 }) => {
   const [createHovered, setCreateHovered] = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-  const counts = {
-    open: allItems.filter((item) => item.state === "OPEN").length,
-    closed: allItems.filter((item) => item.state === "CLOSED").length,
-    all: allItems.length,
-  }
+  const statusCount =
+    filter === "all" ? allItems.length : allItems.filter((item) => item.state === filter.toUpperCase()).length
   const bodyHeight = Math.max(4, height - 3)
   const listWidth = width >= 92 ? Math.max(42, Math.floor(width * 0.58)) : width
   const detailWidth = Math.max(1, width - listWidth - 1)
-  const capacity = Math.max(1, Math.floor((bodyHeight - 1) / 2))
+  const capacity = Math.max(1, Math.floor(bodyHeight / 2))
   const start = visibleWindowStart(items.length, capacity, selectedIndex)
   const selected = items[selectedIndex] ?? null
 
@@ -64,7 +67,7 @@ export const WorkItems = ({
     <box width={width} height={height} flexDirection="column">
       <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
-          Work items <span fg={colors.subtle}>· {filterLabel(filter).toLowerCase()}</span>
+          Work items
         </text>
         <text
           fg={colors.text}
@@ -77,42 +80,55 @@ export const WorkItems = ({
           {" + Create work item "}
         </text>
       </box>
-      <box height={1} paddingLeft={1} flexDirection="row">
-        <text fg={colors.subtle}>Status </text>
-        {workItemStateFilters.map((candidate) => {
-          const active = candidate === filter
-          return (
-            <text
-              key={candidate}
-              fg={active ? colors.text : colors.muted}
-              bg={active ? colors.selected : colors.background}
-              attributes={active ? TextAttributes.BOLD : 0}
-              onMouseDown={() => onFilterChange(candidate)}
-            >
-              {` ${active ? "● " : ""}${filterLabel(candidate)} ${counts[candidate]} `}
-            </text>
-          )
-        })}
-        <text fg={colors.subtle}> f cycles</text>
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" backgroundColor={colors.panel}>
+        <text fg={colors.active}>⌕ </text>
+        <text
+          fg={colors.text}
+          bg={colors.selected}
+          attributes={TextAttributes.BOLD}
+          onMouseDown={() => onFilterChange(nextWorkItemStateFilter(filter))}
+        >
+          {` status:${filter} `}
+        </text>
+        <text fg={colors.border}> │ </text>
+        {queryEditing ? (
+          <input
+            flexGrow={1}
+            value={query}
+            focused
+            placeholder="Search"
+            backgroundColor={colors.panelRaised}
+            focusedBackgroundColor={colors.panelRaised}
+            textColor={colors.text}
+            focusedTextColor={colors.text}
+            placeholderColor={colors.subtle}
+            onInput={onQueryChange}
+            onSubmit={() => onQueryEditingChange(false)}
+          />
+        ) : (
+          <text flexGrow={1} fg={query ? colors.text : colors.subtle} onMouseDown={() => onQueryEditingChange(true)}>
+            {query || "/ Search work items"}
+          </text>
+        )}
+        {query ? (
+          <text fg={colors.muted} onMouseDown={() => onQueryChange("")}>
+            {" × "}
+          </text>
+        ) : null}
+        <text fg={colors.subtle}>{`${items.length}/${statusCount}`}</text>
       </box>
       <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
 
       <box height={bodyHeight} flexDirection="row">
         <box width={listWidth} height={bodyHeight} flexDirection="column" onMouseScroll={scroll}>
-          <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
-            <text fg={colors.muted} attributes={TextAttributes.BOLD}>
-              WORK ITEMS
-            </text>
-            <text fg={colors.subtle}>
-              {items.length === 0
-                ? "0 items"
-                : `${start + 1}–${Math.min(items.length, start + capacity)} of ${items.length}`}
-            </text>
-          </box>
           {items.length === 0 ? (
             <box height={3} paddingLeft={1} flexDirection="column" justifyContent="center">
-              <text fg={colors.text}>{`No ${filter === "all" ? "" : `${filter} `}work items in this scope.`}</text>
-              <text fg={colors.muted}>Change the status filter with f, create an item, or switch scope with tab.</text>
+              <text fg={colors.text}>
+                {query ? "No work items match this search." : `No ${filter === "all" ? "" : `${filter} `}work items.`}
+              </text>
+              <text fg={colors.muted}>
+                {query ? "Press / to edit or clear the search." : "Press f to change status."}
+              </text>
             </box>
           ) : (
             items.slice(start, start + capacity).map((item, localIndex) => {
@@ -132,7 +148,7 @@ export const WorkItems = ({
                 >
                   <text fg={colors.text} attributes={active ? TextAttributes.BOLD : 0}>
                     <span fg={active ? colors.accent : colors.border}>{active ? "▌" : " "}</span>
-                    <span fg={typeColor(item)}>{item.state === "CLOSED" ? "×" : item.type === "EPIC" ? "◆" : "⊙"}</span>
+                    <span fg={typeColor(item)}>{workItemTypeIcon(item)}</span>
                     <span fg={colors.active}>{` ${ellipsis(item.reference, 18)} `}</span>
                     {ellipsis(item.title, Math.max(8, listWidth - Math.min(18, item.reference.length) - 14))}
                     <span fg={colors.subtle}>{`  ${relativeAge(item.updatedAt)}`}</span>
@@ -162,7 +178,9 @@ export const WorkItems = ({
                     {ellipsis(selected.title, Math.max(10, detailWidth - 2))}
                   </text>
                   <text fg={colors.muted}>
-                    <span fg={typeColor(selected)}>{selected.type.toLowerCase()}</span>
+                    <span
+                      fg={typeColor(selected)}
+                    >{`${workItemTypeIcon(selected)} ${selected.type.toLowerCase()}`}</span>
                     <span fg={selected.state === "OPEN" ? colors.active : colors.success}>
                       {`  ${selected.state.toLowerCase()}`}
                     </span>

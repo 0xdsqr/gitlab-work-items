@@ -1,6 +1,6 @@
 import { relativeAge, type WorkItem } from "@github-work-items/domain"
 import { TextAttributes } from "@opentui/core"
-import { colors, ellipsis, typeColor } from "../theme.ts"
+import { colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"
 import { LabelChips } from "./LabelChips.tsx"
 
 export const WorkItemSummaryModal = ({
@@ -44,7 +44,7 @@ export const WorkItemSummaryModal = ({
         {ellipsis(item.title, contentWidth)}
       </text>
       <text fg={colors.muted}>
-        <span fg={typeColor(item)}>{item.type.toLowerCase()}</span>
+        <span fg={typeColor(item)}>{`${workItemTypeIcon(item)} ${item.type.toLowerCase()}`}</span>
         <span fg={item.state === "OPEN" ? colors.active : colors.success}>{`  ${item.state.toLowerCase()}`}</span>
         {`  ·  ${item.reference}  ·  updated ${relativeAge(item.updatedAt)} ago`}
       </text>

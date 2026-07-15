@@ -6,8 +6,25 @@ export type WorkItemStateFilter = "open" | "closed" | "all"
 
 export const workItemStateFilters: readonly WorkItemStateFilter[] = ["open", "closed", "all"]
 
-export const filterWorkItems = (items: readonly WorkItem[], filter: WorkItemStateFilter) =>
-  filter === "all" ? items : items.filter((item) => item.state === filter.toUpperCase())
+export const filterWorkItems = (items: readonly WorkItem[], filter: WorkItemStateFilter, query = "") => {
+  const normalizedQuery = query.trim().toLowerCase()
+  return items.filter((item) => {
+    if (filter !== "all" && item.state !== filter.toUpperCase()) return false
+    if (!normalizedQuery) return true
+    return [
+      item.title,
+      item.description,
+      item.reference,
+      item.namespace,
+      item.author,
+      ...item.assignees,
+      ...item.labels.map((label) => label.name),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery)
+  })
+}
 
 export const nextWorkItemStateFilter = (filter: WorkItemStateFilter) => {
   const index = workItemStateFilters.indexOf(filter)
