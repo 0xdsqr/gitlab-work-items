@@ -3,5 +3,5 @@
     "correctness": "error",
     "suspicious": "warn"
   },
-  "ignorePatterns": ["dist/**", "result*/**"]
+  "ignorePatterns": ["**/node_modules/**", "dist/**", "result*/**"]
 }
