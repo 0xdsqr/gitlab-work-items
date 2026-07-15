@@ -32,12 +32,13 @@ export const SurfaceTabs = ({ active, onSelect }: { active: Surface; onSelect: (
           >
             <text
               fg={selected ? colors.text : colors.muted}
-              bg={selected ? colors.selected : hovered === surface.id ? colors.panelSoft : colors.background}
+              bg={selected ? colors.panelRaised : hovered === surface.id ? colors.panel : colors.background}
               attributes={selected ? TextAttributes.BOLD : 0}
             >
-              {` ${surface.key}  ${surface.label} `}
+              <span fg={selected ? colors.active : colors.subtle}>{selected ? "▌" : " "}</span>
+              {` ${surface.key} ${surface.label} `}
             </text>
-            {index < surfaces.length - 1 ? <text fg={colors.border}>│</text> : null}
+            {index < surfaces.length - 1 ? <text fg={colors.border}> </text> : null}
           </box>
         )
       })}
@@ -55,19 +56,19 @@ export const ScopeTabs = ({
   onSelect: (scope: WorkItemScope) => void
 }) => (
   <box height={1} flexDirection="row">
-    <text fg={colors.muted}>Scope </text>
+    <text fg={colors.subtle}>Scope </text>
     {scopes.map((scope) => {
       const selected = scope.id === active
       const suffix = scope.id === "organization" && group ? ` · ${group}` : ""
       return (
         <text
           key={scope.id}
-          fg={selected ? colors.accent : colors.muted}
-          bg={selected ? colors.panelSoft : colors.background}
+          fg={selected ? colors.text : colors.muted}
+          bg={selected ? colors.panel : colors.background}
           attributes={selected ? TextAttributes.BOLD : 0}
           onMouseDown={() => onSelect(scope.id)}
         >
-          {` ${scope.label}${suffix} `}
+          {` ${selected ? "● " : ""}${scope.label}${suffix} `}
         </text>
       )
     })}

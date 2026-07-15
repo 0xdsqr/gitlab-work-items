@@ -26,7 +26,7 @@ export const CreateWorkItemModal = ({
   onSubmit: () => void
   onClose: () => void
 }) => {
-  const width = Math.max(42, Math.min(72, screenWidth - 6))
+  const width = Math.min(72, Math.max(24, screenWidth - 4))
   const height = 12
   return (
     <box
@@ -37,24 +37,24 @@ export const CreateWorkItemModal = ({
       height={height}
       zIndex={100}
       border
-      borderStyle="double"
-      borderColor={colors.accent}
-      backgroundColor={colors.panelRaised}
+      borderStyle="single"
+      borderColor={colors.borderActive}
+      backgroundColor={colors.panel}
       padding={1}
       flexDirection="column"
       title=" Create work item "
     >
       <text fg={colors.text} attributes={TextAttributes.BOLD}>
-        Start with a clear, useful title.
+        Create a GitLab work item
       </text>
-      <text fg={colors.muted}>The issue is created in GitLab immediately.</text>
+      <text fg={colors.muted}>Choose a project and give the work a clear title.</text>
       <box height={1} />
-      <text fg={field === "project" ? colors.accent : colors.muted}>Project path</text>
+      <text fg={field === "project" ? colors.active : colors.muted}>Project path</text>
       <input
         value={project}
         focused={field === "project"}
         placeholder="group/project"
-        backgroundColor={colors.panelSoft}
+        backgroundColor={colors.panelRaised}
         focusedBackgroundColor={colors.selected}
         textColor={colors.text}
         focusedTextColor={colors.text}
@@ -63,12 +63,12 @@ export const CreateWorkItemModal = ({
         onInput={onProjectChange}
         onSubmit={() => onFieldChange("title")}
       />
-      <text fg={field === "title" ? colors.accent : colors.muted}>Title</text>
+      <text fg={field === "title" ? colors.active : colors.muted}>Title</text>
       <input
         value={title}
         focused={field === "title"}
         placeholder="What needs to change?"
-        backgroundColor={colors.panelSoft}
+        backgroundColor={colors.panelRaised}
         focusedBackgroundColor={colors.selected}
         textColor={colors.text}
         focusedTextColor={colors.text}
@@ -78,19 +78,19 @@ export const CreateWorkItemModal = ({
         onSubmit={onSubmit}
       />
       <box height={1} />
-      <box justifyContent="space-between">
+      <box flexDirection="row" justifyContent="space-between">
         <text fg={colors.muted} onMouseDown={onClose}>
           esc Cancel
         </text>
         <text
-          fg={busy ? colors.muted : colors.background}
-          bg={busy ? colors.border : colors.gitlab}
+          fg={busy ? colors.muted : colors.text}
+          bg={busy ? colors.border : colors.confirm}
           attributes={TextAttributes.BOLD}
           onMouseDown={() => {
             if (!busy) onSubmit()
           }}
         >
-          {busy ? " Creating… " : " enter  Create "}
+          {busy ? " Creating… " : " + Create work item "}
         </text>
       </box>
     </box>

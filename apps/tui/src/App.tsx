@@ -285,28 +285,38 @@ export const App = () => {
       move(boardSelected, workflowColumns[boardColumnIndex + 1]?.id ?? "closed")
   })
 
-  const contentHeight = Math.max(8, height - 7)
+  const contentHeight = Math.max(8, height - 6)
   const authError = status === "error"
 
   return (
     <box width={width} height={height} flexDirection="column" backgroundColor={colors.background}>
-      <box height={2} paddingLeft={1} paddingRight={1} justifyContent="space-between" alignItems="center">
+      <box
+        height={1}
+        paddingLeft={1}
+        paddingRight={1}
+        flexDirection="row"
+        justifyContent="space-between"
+        backgroundColor={colors.panel}
+      >
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
-          <span fg={colors.accent}>◆</span> work items <span fg={colors.muted}>/ @{username}</span>
+          <span fg={colors.gitlab}>◆</span> GitLab work items <span fg={colors.muted}>/ @{username}</span>
         </text>
-        <text fg={config.mock ? colors.warning : colors.success}>
-          <span fg={colors.gitlab}>●</span> {config.mock ? "sample workspace" : config.host.replace(/^https?:\/\//, "")}
+        <text fg={colors.muted}>
+          <span fg={config.mock ? colors.warning : colors.success}>●</span>{" "}
+          {config.mock ? "sample workspace" : config.host.replace(/^https?:\/\//, "")}
         </text>
       </box>
-      <box height={1} paddingLeft={1} paddingRight={1} justifyContent="space-between">
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <SurfaceTabs active={surface} onSelect={setSurface} />
         <text fg={status === "loading" ? colors.warning : status === "error" ? colors.error : colors.success}>
           {status === "loading" ? "syncing" : status}
         </text>
       </box>
-      <box height={1} paddingLeft={1}>
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <ScopeTabs active={scope} group={config.group} onSelect={selectScope} />
+        <text fg={colors.subtle}>tab changes scope</text>
       </box>
+      <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
 
       {authError ? (
         <box
@@ -357,11 +367,13 @@ export const App = () => {
       <box height={1} paddingLeft={1} paddingRight={1} backgroundColor={colors.panel}>
         <text fg={toast.includes("failed") ? colors.error : colors.muted}>{toast}</text>
       </box>
-      <box height={2} paddingLeft={1} paddingRight={1} justifyContent="space-between" alignItems="center">
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.muted}>
-          {surface === "board" ? "h/l columns  j/k cards  [/] move  drag/drop" : "j/k select  n create"}
+          {surface === "board"
+            ? "h/l columns  j/k cards  [/] move  mouse drag/drop"
+            : "j/k select  wheel scroll  n create"}
         </text>
-        <text fg={colors.muted}>o GitLab x close/reopen tab scope r sync q quit</text>
+        {width >= 88 ? <text fg={colors.muted}>o GitLab x close/reopen r sync q quit</text> : null}
       </box>
 
       {createForm ? (
