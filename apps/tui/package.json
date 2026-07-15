@@ -1,0 +1,21 @@
+{
+  "name": "@github-work-items/tui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.tsx --target=bun --external '@opentui/*' --external react --external 'react/*' --external scheduler --external 'scheduler/*' --outdir=dist",
+    "dev": "bun --watch src/index.tsx",
+    "start": "bun src/index.tsx",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@github-work-items/domain": "workspace:*",
+    "@github-work-items/gitlab": "workspace:*",
+    "@opentui/core": "0.4.2",
+    "@opentui/react": "0.4.2",
+    "effect": "4.0.0-beta.90",
+    "react": "19.2.7",
+    "scheduler": "0.27.0"
+  }
+}
