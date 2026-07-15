@@ -22,5 +22,5 @@ export const gitLabConfigFromEnv = (env: Record<string, string | undefined> = pr
 export const issuePathFor = (scope: WorkItemScope, group: string | null) => {
   const root = scope === "organization" && group ? `groups/${encodeURIComponent(group)}/issues` : "issues"
   const queryScope = scope === "created" ? "created_by_me" : scope === "assigned" ? "assigned_to_me" : "all"
-  return `${root}?scope=${queryScope}&state=opened&order_by=updated_at&sort=desc&per_page=100`
+  return `${root}?scope=${queryScope}&state=all&order_by=updated_at&sort=desc&per_page=100`
 }

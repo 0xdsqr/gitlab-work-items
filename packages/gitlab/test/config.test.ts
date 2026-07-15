@@ -9,4 +9,8 @@ describe("GitLab configuration", () => {
   it("builds an encoded group endpoint", () => {
     expect(issuePathFor("organization", "acme/platform")).toContain("groups/acme%2Fplatform/issues")
   })
+
+  it("loads open and closed work for board lifecycle actions", () => {
+    expect(issuePathFor("assigned", null)).toContain("state=all")
+  })
 })
