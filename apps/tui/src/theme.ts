@@ -1,27 +1,30 @@
 import type { WorkItem } from "@github-work-items/domain"
 
 export const colors = {
-  background: "#100b18",
-  panel: "#181022",
-  panelRaised: "#21162f",
-  panelSoft: "#2a1b3d",
-  border: "#4c3564",
-  borderActive: "#a855f7",
-  text: "#f2eaff",
-  muted: "#aa96bd",
-  accent: "#c084fc",
-  accentStrong: "#a855f7",
+  background: "#18171d",
+  panel: "#28272d",
+  panelRaised: "#3a383f",
+  panelSoft: "#28272d",
+  border: "#4c4b51",
+  borderActive: "#7b58cf",
+  text: "#fbfafd",
+  muted: "#bfbfc3",
+  subtle: "#89888d",
+  accent: "#ac93e6",
+  accentStrong: "#7b58cf",
+  active: "#63a6e9",
+  confirm: "#108548",
   gitlab: "#fc6d26",
-  selected: "#332047",
-  success: "#6ee7b7",
-  warning: "#f6c177",
-  error: "#fb7185",
-  epic: "#f0abfc",
-  issue: "#93c5fd",
-  task: "#5eead4",
+  selected: "#342d59",
+  success: "#52b87a",
+  warning: "#e9be74",
+  error: "#f6806d",
+  epic: "#cbbbf2",
+  issue: "#9dc7f1",
+  task: "#91d4a8",
 } as const
 
-const labelPalette = ["#4c1d95", "#581c87", "#3b2766", "#312e81", "#4a255f", "#28305f"] as const
+const labelPalette = ["#9dc7f1", "#91d4a8", "#e9be74", "#fcb5aa", "#cbbbf2", "#bfbfc3"] as const
 
 export const typeColor = (item: WorkItem) => {
   if (item.type === "EPIC") return colors.epic

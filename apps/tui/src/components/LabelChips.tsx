@@ -17,8 +17,9 @@ export const LabelChips = ({ labels, width }: { labels: readonly string[]; width
     <>
       {visible.map((label, index) => (
         <Fragment key={`${label}-${index}`}>
-          {index > 0 ? <span> </span> : null}
-          <span fg={colors.text} bg={labelColor(label)}>{` ${label} `}</span>
+          {index > 0 ? <span fg={colors.border}> · </span> : null}
+          <span fg={labelColor(label)}>●</span>
+          <span fg={colors.muted}>{` ${label}`}</span>
         </Fragment>
       ))}
     </>
