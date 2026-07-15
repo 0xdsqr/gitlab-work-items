@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { visibleWindowStart, workItemDragSourceId, workItemIdFromDragSource } from "./ui-state.ts"
+import {
+  visibleWindowStart,
+  workItemDragSourceId,
+  workItemIdFromDragRenderable,
+  workItemIdFromDragSource,
+} from "./ui-state.ts"
 
 describe("visibleWindowStart", () => {
   it("keeps the first page anchored while its selection is visible", () => {
@@ -28,5 +33,11 @@ describe("work item drag sources", () => {
     expect(workItemIdFromDragSource("column:ready")).toBeNull()
     expect(workItemIdFromDragSource("work-item:")).toBeNull()
     expect(workItemIdFromDragSource(undefined)).toBeNull()
+  })
+
+  it("finds the card id when a text child owns the mouse capture", () => {
+    const card = { id: workItemDragSourceId("42"), parent: null }
+    const text = { id: "text-17", parent: card }
+    expect(workItemIdFromDragRenderable(text)).toBe("42")
   })
 })

@@ -1,0 +1,60 @@
+import { afterEach, expect, test } from "bun:test"
+import { mockWorkspace, type WorkflowColumnId } from "@github-work-items/domain"
+import { createTestRenderer } from "@opentui/core/testing"
+import { createRoot } from "@opentui/react"
+import { act } from "react"
+import { Board } from "../src/components/Board.tsx"
+import { workItemDragSourceId } from "../src/ui-state.ts"
+
+let cleanup: (() => Promise<void>) | null = null
+
+afterEach(async () => {
+  await cleanup?.()
+  cleanup = null
+})
+
+test("a drag starting on card text drops the card into a visible column", async () => {
+  const setup = await createTestRenderer({ width: 80, height: 28 })
+  const root = createRoot(setup.renderer)
+  cleanup = async () => {
+    await act(async () => root.unmount())
+    setup.renderer.destroy()
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false
+  }
+  const moves: Array<{ itemId: string; target: WorkflowColumnId }> = []
+
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true
+  await act(async () => {
+    root.render(
+      <Board
+        width={80}
+        height={28}
+        items={mockWorkspace.items}
+        focusedColumnIndex={1}
+        selectedIndex={0}
+        pendingItemId={null}
+        onSelect={() => undefined}
+        onMove={(item, target) => moves.push({ itemId: item.id, target })}
+      />,
+    )
+  })
+  await setup.renderOnce()
+  await setup.flush()
+
+  const item = mockWorkspace.items[0]
+  expect(item).toBeDefined()
+  if (!item) return
+  const source = setup.renderer.root.findDescendantById(workItemDragSourceId(item.id))
+  const target = setup.renderer.root.findDescendantById("workflow-column:doing")
+  expect(source).toBeDefined()
+  expect(target).toBeDefined()
+  if (!source || !target) return
+
+  // y + 1 lands on the first text row, reproducing a real Ghostty drag.
+  await act(async () => {
+    await setup.mockMouse.drag(source.x + 4, source.y + 1, target.x + 2, target.y + 1)
+    await setup.flush()
+  })
+
+  expect(moves).toEqual([{ itemId: item.id, target: "doing" }])
+})

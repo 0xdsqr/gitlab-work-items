@@ -8,17 +8,17 @@ import {
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { Fragment, useState } from "react"
 import { colors, ellipsis, typeColor } from "../theme.ts"
-import { visibleWindowStart, workItemDragSourceId, workItemIdFromDragSource } from "../ui-state.ts"
+import { visibleWindowStart, workItemDragSourceId, workItemIdFromDragRenderable } from "../ui-state.ts"
 import { LabelChips } from "./LabelChips.tsx"
 
 const visibleColumns = (width: number, focusedIndex: number) => {
   if (width >= 126) return workflowColumns
-  if (width < 86) return [workflowColumns[focusedIndex] ?? workflowColumns[0]]
+  if (width < 66) return [workflowColumns[focusedIndex] ?? workflowColumns[0]]
   const start = Math.max(0, Math.min(workflowColumns.length - 3, focusedIndex - 1))
   return workflowColumns.slice(start, start + 3)
 }
 
-const draggedWorkItemId = (event: MouseEvent) => workItemIdFromDragSource(event.source?.id)
+const draggedWorkItemId = (event: MouseEvent) => workItemIdFromDragRenderable(event.source)
 
 const Separator = ({ height }: { height: number }) => (
   <box width={1} height={height} flexDirection="column">
@@ -76,10 +76,10 @@ export const Board = ({
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
           Board <span fg={colors.subtle}>· {focused.label}</span>
         </text>
-        <text fg={colors.muted}>drag a card between columns · [ / ] also moves</text>
+        <text fg={colors.muted}>mouse: hold on ⠿, move, release · keyboard: [ / ]</text>
       </box>
       <box height={1} paddingLeft={1}>
-        <text fg={colors.muted}>Hold the left mouse button, drag, then release over a destination column.</text>
+        <text fg={colors.muted}>The destination says “Release to move here” when the card can be dropped.</text>
       </box>
       <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
       <box width={width} height={boardHeight} flexDirection="row">
@@ -171,19 +171,21 @@ export const Board = ({
                         setDropTarget(null)
                       }}
                     >
-                      <text fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
+                      <text selectable={false} fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
                         <span fg={dragging ? colors.success : colors.subtle}>⠿</span>
                         <span fg={typeColor(item)}>{` ${item.type.toLowerCase()} `}</span>
                         <span fg={colors.subtle}>{relativeAge(item.updatedAt)}</span>
                       </text>
-                      <text fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
+                      <text selectable={false} fg={colors.text} attributes={selected ? TextAttributes.BOLD : 0}>
                         {ellipsis(item.title, cardWidth)}
                       </text>
-                      <text fg={colors.muted}>{ellipsis(item.reference, cardWidth)}</text>
-                      <text>
+                      <text selectable={false} fg={colors.muted}>
+                        {ellipsis(item.reference, cardWidth)}
+                      </text>
+                      <text selectable={false}>
                         <LabelChips labels={item.labels} width={cardWidth} />
                       </text>
-                      <text fg={pending ? colors.warning : colors.muted}>
+                      <text selectable={false} fg={pending ? colors.warning : colors.muted}>
                         {pending
                           ? "syncing with GitLab…"
                           : ellipsis(item.assignees.map((name) => `@${name}`).join(" ") || "unassigned", cardWidth)}
