@@ -1,0 +1,14 @@
+{
+  "name": "@github-work-items/gitlab",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@github-work-items/domain": "workspace:*",
+    "effect": "4.0.0-beta.90"
+  }
+}
