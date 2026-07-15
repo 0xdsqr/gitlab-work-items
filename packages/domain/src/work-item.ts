@@ -18,6 +18,7 @@ export type WorkItemState = typeof WorkItemState.Type
 
 export const WorkItem = Schema.Struct({
   id: Schema.String,
+  projectId: Schema.Number,
   iid: Schema.Number,
   type: WorkItemType,
   title: Schema.String,
