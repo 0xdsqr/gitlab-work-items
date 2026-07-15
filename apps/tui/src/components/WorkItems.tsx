@@ -2,7 +2,7 @@ import { relativeAge, type WorkItem } from "@github-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { useState } from "react"
 import { colors, ellipsis, typeColor } from "../theme.ts"
-import { visibleWindowStart } from "../ui-state.ts"
+import { visibleWindowStart, workItemStateFilters, type WorkItemStateFilter } from "../ui-state.ts"
 import { LabelChips } from "./LabelChips.tsx"
 
 const Separator = ({ height }: { height: number }) => (
@@ -15,29 +15,36 @@ const Separator = ({ height }: { height: number }) => (
   </box>
 )
 
-export const Overview = ({
+const filterLabel = (filter: WorkItemStateFilter) => `${filter[0]?.toUpperCase()}${filter.slice(1)}`
+
+export const WorkItems = ({
   width,
   height,
   items,
+  allItems,
+  filter,
   selectedIndex,
   onSelect,
+  onFilterChange,
   onCreate,
 }: {
   width: number
   height: number
   items: readonly WorkItem[]
+  allItems: readonly WorkItem[]
+  filter: WorkItemStateFilter
   selectedIndex: number
   onSelect: (index: number) => void
+  onFilterChange: (filter: WorkItemStateFilter) => void
   onCreate: () => void
 }) => {
   const [createHovered, setCreateHovered] = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-  const open = items.filter((item) => item.state === "OPEN")
-  const closed = items.length - open.length
-  const doing = open.filter((item) =>
-    item.labels.some((label) => ["workflow::in progress", "workflow::doing"].includes(label.name.toLowerCase())),
-  ).length
-  const review = open.filter((item) => item.labels.some((label) => label.name.toLowerCase().includes("review"))).length
+  const counts = {
+    open: allItems.filter((item) => item.state === "OPEN").length,
+    closed: allItems.filter((item) => item.state === "CLOSED").length,
+    all: allItems.length,
+  }
   const bodyHeight = Math.max(4, height - 3)
   const listWidth = width >= 92 ? Math.max(42, Math.floor(width * 0.58)) : width
   const detailWidth = Math.max(1, width - listWidth - 1)
@@ -57,11 +64,11 @@ export const Overview = ({
     <box width={width} height={height} flexDirection="column">
       <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
-          My work <span fg={colors.subtle}>· updated activity</span>
+          Work items <span fg={colors.subtle}>· {filterLabel(filter).toLowerCase()}</span>
         </text>
         <text
           fg={colors.text}
-          bg={createHovered ? colors.success : colors.confirm}
+          bg={createHovered ? colors.accentStrong : colors.confirm}
           attributes={TextAttributes.BOLD}
           onMouseDown={onCreate}
           onMouseOver={() => setCreateHovered(true)}
@@ -70,16 +77,23 @@ export const Overview = ({
           {" + Create work item "}
         </text>
       </box>
-      <box height={1} paddingLeft={1}>
-        <text fg={colors.muted}>
-          <span fg={colors.active}>{open.length}</span> open
-          <span fg={colors.border}> │ </span>
-          <span fg={colors.warning}>{doing}</span> in progress
-          <span fg={colors.border}> │ </span>
-          <span fg={colors.accent}>{review}</span> in review
-          <span fg={colors.border}> │ </span>
-          <span fg={colors.success}>{closed}</span> closed
-        </text>
+      <box height={1} paddingLeft={1} flexDirection="row">
+        <text fg={colors.subtle}>Status </text>
+        {workItemStateFilters.map((candidate) => {
+          const active = candidate === filter
+          return (
+            <text
+              key={candidate}
+              fg={active ? colors.text : colors.muted}
+              bg={active ? colors.selected : colors.background}
+              attributes={active ? TextAttributes.BOLD : 0}
+              onMouseDown={() => onFilterChange(candidate)}
+            >
+              {` ${active ? "● " : ""}${filterLabel(candidate)} ${counts[candidate]} `}
+            </text>
+          )
+        })}
+        <text fg={colors.subtle}> f cycles</text>
       </box>
       <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
 
@@ -87,7 +101,7 @@ export const Overview = ({
         <box width={listWidth} height={bodyHeight} flexDirection="column" onMouseScroll={scroll}>
           <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
             <text fg={colors.muted} attributes={TextAttributes.BOLD}>
-              RECENT WORK
+              WORK ITEMS
             </text>
             <text fg={colors.subtle}>
               {items.length === 0
@@ -97,8 +111,8 @@ export const Overview = ({
           </box>
           {items.length === 0 ? (
             <box height={3} paddingLeft={1} flexDirection="column" justifyContent="center">
-              <text fg={colors.text}>Nothing in this scope yet.</text>
-              <text fg={colors.muted}>Create an item or switch scope with tab.</text>
+              <text fg={colors.text}>{`No ${filter === "all" ? "" : `${filter} `}work items in this scope.`}</text>
+              <text fg={colors.muted}>Change the status filter with f, create an item, or switch scope with tab.</text>
             </box>
           ) : (
             items.slice(start, start + capacity).map((item, localIndex) => {
@@ -149,7 +163,10 @@ export const Overview = ({
                   </text>
                   <text fg={colors.muted}>
                     <span fg={typeColor(selected)}>{selected.type.toLowerCase()}</span>
-                    {`  ${selected.reference}  ·  updated ${relativeAge(selected.updatedAt)} ago`}
+                    <span fg={selected.state === "OPEN" ? colors.active : colors.success}>
+                      {`  ${selected.state.toLowerCase()}`}
+                    </span>
+                    {`  ·  ${selected.reference}  ·  updated ${relativeAge(selected.updatedAt)} ago`}
                   </text>
                   <text>
                     <LabelChips labels={selected.labels} width={Math.max(8, detailWidth - 2)} />

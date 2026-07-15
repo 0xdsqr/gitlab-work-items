@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest"
 import {
+  filterWorkItems,
+  nextWorkItemStateFilter,
   visibleWindowStart,
   workItemDragSourceId,
   workItemIdFromDragRenderable,
   workItemIdFromDragSource,
 } from "./ui-state.ts"
+import { mockWorkspace } from "@github-work-items/domain"
+
+describe("work item status filters", () => {
+  it("defaults can be applied without mutating the workspace", () => {
+    expect(filterWorkItems(mockWorkspace.items, "open")).toHaveLength(3)
+    expect(filterWorkItems(mockWorkspace.items, "closed").map((item) => item.id)).toEqual(["gid://gitlab/WorkItem/104"])
+    expect(filterWorkItems(mockWorkspace.items, "all")).toHaveLength(4)
+  })
+
+  it("cycles open, closed, and all", () => {
+    expect(nextWorkItemStateFilter("open")).toBe("closed")
+    expect(nextWorkItemStateFilter("closed")).toBe("all")
+    expect(nextWorkItemStateFilter("all")).toBe("open")
+  })
+})
 
 describe("visibleWindowStart", () => {
   it("keeps the first page anchored while its selection is visible", () => {

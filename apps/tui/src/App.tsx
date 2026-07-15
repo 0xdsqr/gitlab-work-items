@@ -20,9 +20,11 @@ import { Effect } from "effect"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Board } from "./components/Board.tsx"
 import { CreateWorkItemModal } from "./components/CreateWorkItemModal.tsx"
-import { Overview } from "./components/Overview.tsx"
+import { WorkItems } from "./components/WorkItems.tsx"
 import { ScopeTabs, scopes, SurfaceTabs, type Surface } from "./components/Tabs.tsx"
+import { WorkItemSummaryModal } from "./components/WorkItemSummaryModal.tsx"
 import { colors } from "./theme.ts"
+import { filterWorkItems, nextWorkItemStateFilter, type WorkItemStateFilter } from "./ui-state.ts"
 
 const messageOf = (error: unknown) => {
   if (typeof error === "object" && error !== null && "detail" in error && typeof error.detail === "string")
@@ -40,9 +42,10 @@ export const App = () => {
   const renderer = useRenderer()
   const { width, height } = useTerminalDimensions()
   const config = useMemo(() => gitLabConfigFromEnv(), [])
-  const [surface, setSurface] = useState<Surface>("overview")
+  const [surface, setSurface] = useState<Surface>("board")
   const [scopeIndex, setScopeIndex] = useState(0)
-  const [overviewIndex, setOverviewIndex] = useState(0)
+  const [workItemsIndex, setWorkItemsIndex] = useState(0)
+  const [workItemFilter, setWorkItemFilter] = useState<WorkItemStateFilter>("open")
   const [boardColumnIndex, setBoardColumnIndex] = useState(0)
   const [boardCardIndex, setBoardCardIndex] = useState(0)
   const [items, setItems] = useState<readonly WorkItem[]>([])
@@ -53,14 +56,17 @@ export const App = () => {
   const [pendingItemId, setPendingItemId] = useState<string | null>(null)
   const [toast, setToast] = useState("Loading your GitLab workspace…")
   const [createForm, setCreateForm] = useState<CreateForm | null>(null)
+  const [summaryItemId, setSummaryItemId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const scope = scopes[scopeIndex]?.id ?? "assigned"
   const grouped = useMemo(() => workItemsByColumn(items), [items])
+  const filteredItems = useMemo(() => filterWorkItems(items, workItemFilter), [items, workItemFilter])
   const boardColumn = workflowColumns[boardColumnIndex] ?? workflowColumns[0]
   const boardItems = grouped[boardColumn.id]
-  const overviewSelected = items[overviewIndex] ?? null
+  const workItemsSelected = filteredItems[workItemsIndex] ?? null
   const boardSelected = boardItems[boardCardIndex] ?? null
-  const selected = surface === "overview" ? overviewSelected : boardSelected
+  const selected = surface === "work-items" ? workItemsSelected : boardSelected
+  const summaryItem = items.find((item) => item.id === summaryItemId) ?? null
 
   const refresh = useCallback(() => setRefreshKey((value) => value + 1), [])
 
@@ -78,7 +84,7 @@ export const App = () => {
         if (cancelled) return
         setItems(workspace.items)
         setUsername(workspace.user.username)
-        setOverviewIndex(0)
+        setWorkItemsIndex(0)
         const firstPopulatedColumn = workflowColumns.findIndex(
           (column) => workItemsByColumn(workspace.items)[column.id].length > 0,
         )
@@ -103,6 +109,11 @@ export const App = () => {
   const selectScope = useCallback((next: WorkItemScope) => {
     const index = scopes.findIndex((candidate) => candidate.id === next)
     if (index >= 0) setScopeIndex(index)
+  }, [])
+
+  const selectWorkItemFilter = useCallback((next: WorkItemStateFilter) => {
+    setWorkItemFilter(next)
+    setWorkItemsIndex(0)
   }, [])
 
   const openCreate = useCallback(() => {
@@ -199,10 +210,10 @@ export const App = () => {
     void Effect.runPromise(createWorkItem(project, title)).then(
       (created) => {
         setItems((current) => [created, ...current])
-        setOverviewIndex(0)
+        setWorkItemsIndex(0)
         setCreating(false)
         setCreateForm(null)
-        setSurface("overview")
+        setSurface("work-items")
         setToast(`${created.reference} created`)
       },
       (cause) => {
@@ -221,16 +232,22 @@ export const App = () => {
         )
       return
     }
+    if (summaryItem) {
+      if (key.name === "escape" || key.name === "enter" || key.name === "return") setSummaryItemId(null)
+      if (key.name === "o") openInGitLab(summaryItem)
+      if (key.name === "x") toggleState(summaryItem)
+      return
+    }
     if (key.name === "q" || (key.ctrl && key.name === "c")) {
       renderer.destroy()
       return
     }
     if (key.name === "1") {
-      setSurface("overview")
+      setSurface("board")
       return
     }
     if (key.name === "2") {
-      setSurface("board")
+      setSurface("work-items")
       return
     }
     if (key.name === "tab") {
@@ -253,9 +270,14 @@ export const App = () => {
       toggleState(selected)
       return
     }
-    if (surface === "overview") {
-      if (key.name === "j" || key.name === "down") setOverviewIndex((index) => Math.min(items.length - 1, index + 1))
-      if (key.name === "k" || key.name === "up") setOverviewIndex((index) => Math.max(0, index - 1))
+    if (surface === "work-items") {
+      if (key.name === "f") {
+        selectWorkItemFilter(nextWorkItemStateFilter(workItemFilter))
+        return
+      }
+      if (key.name === "j" || key.name === "down")
+        setWorkItemsIndex((index) => Math.min(Math.max(0, filteredItems.length - 1), index + 1))
+      if (key.name === "k" || key.name === "up") setWorkItemsIndex((index) => Math.max(0, index - 1))
       return
     }
 
@@ -275,6 +297,10 @@ export const App = () => {
     }
     if (key.name === "k" || key.name === "up") {
       setBoardCardIndex((index) => Math.max(0, index - 1))
+      return
+    }
+    if ((key.name === "enter" || key.name === "return") && boardSelected) {
+      setSummaryItemId(boardSelected.id)
       return
     }
     if ((key.sequence === "[" || key.name === "[") && boardSelected && boardColumnIndex > 0) {
@@ -338,13 +364,16 @@ export const App = () => {
           <text fg={colors.muted}>Set GITLAB_TOKEN or run `glab auth login`, then press r.</text>
           <text fg={colors.muted}>For organization scope, set GWI_GROUP to the full group path.</text>
         </box>
-      ) : surface === "overview" ? (
-        <Overview
+      ) : surface === "work-items" ? (
+        <WorkItems
           width={width}
           height={contentHeight}
-          items={items}
-          selectedIndex={overviewIndex}
-          onSelect={setOverviewIndex}
+          items={filteredItems}
+          allItems={items}
+          filter={workItemFilter}
+          selectedIndex={workItemsIndex}
+          onSelect={setWorkItemsIndex}
+          onFilterChange={selectWorkItemFilter}
           onCreate={openCreate}
         />
       ) : (
@@ -370,8 +399,8 @@ export const App = () => {
       <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.muted}>
           {surface === "board"
-            ? "h/l columns  j/k cards  [/] move  mouse drag/drop"
-            : "j/k select  wheel scroll  n create"}
+            ? "h/l columns  j/k cards  [/] move  enter summary  mouse drag/drop"
+            : "j/k select  f status  wheel scroll  n create"}
         </text>
         {width >= 88 ? <text fg={colors.muted}>o GitLab x close/reopen r sync q quit</text> : null}
       </box>
@@ -389,6 +418,17 @@ export const App = () => {
           onFieldChange={(field) => setCreateForm((current) => (current ? { ...current, field } : null))}
           onSubmit={submitCreate}
           onClose={() => setCreateForm(null)}
+        />
+      ) : null}
+      {summaryItem ? (
+        <WorkItemSummaryModal
+          screenWidth={width}
+          screenHeight={height}
+          item={summaryItem}
+          pending={pendingItemId === summaryItem.id}
+          onOpen={() => openInGitLab(summaryItem)}
+          onToggleState={() => toggleState(summaryItem)}
+          onClose={() => setSummaryItemId(null)}
         />
       ) : null}
     </box>

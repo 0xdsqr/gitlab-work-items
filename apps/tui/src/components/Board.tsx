@@ -58,7 +58,7 @@ export const Board = ({
   const separatorWidth = Math.max(0, columns.length - 1)
   const availableWidth = Math.max(columns.length * 20, width - separatorWidth)
   const columnWidth = Math.max(20, Math.floor(availableWidth / columns.length))
-  const cardCapacity = Math.max(1, Math.floor((boardHeight - 2) / 6))
+  const cardCapacity = Math.max(1, Math.floor((boardHeight - 2) / 7))
 
   const drop = (event: MouseEvent, target: WorkflowColumnId) => {
     const itemId = draggedWorkItemId(event)
@@ -76,10 +76,10 @@ export const Board = ({
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
           Board <span fg={colors.subtle}>· {focused.label}</span>
         </text>
-        <text fg={colors.muted}>mouse: hold on ⠿, move, release · keyboard: [ / ]</text>
+        <text fg={colors.muted}>[ move left · ] move right · enter summary</text>
       </box>
       <box height={1} paddingLeft={1}>
-        <text fg={colors.muted}>The destination says “Release to move here” when the card can be dropped.</text>
+        <text fg={colors.muted}>Mouse: hold on ⠿, move to a highlighted column, then release.</text>
       </box>
       <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
       <box width={width} height={boardHeight} flexDirection="row">
@@ -93,7 +93,8 @@ export const Board = ({
             visibleIndex === columns.length - 1
               ? Math.max(20, width - separatorWidth - columnWidth * visibleIndex)
               : columnWidth
-          const cardWidth = Math.max(8, renderedWidth - 4)
+          // Column width minus margins, border, and horizontal padding.
+          const cardWidth = Math.max(8, renderedWidth - 6)
           return (
             <Fragment key={column.id}>
               {visibleIndex > 0 ? <Separator height={boardHeight} /> : null}
@@ -148,7 +149,7 @@ export const Board = ({
                     <box
                       id={workItemDragSourceId(item.id)}
                       key={item.id}
-                      height={6}
+                      height={7}
                       marginLeft={1}
                       marginRight={1}
                       border

@@ -41,6 +41,11 @@ test("a drag starting on card text drops the card into a visible column", async 
   await setup.renderOnce()
   await setup.flush()
 
+  const cardFrame = setup.captureCharFrame()
+  expect(cardFrame).toContain("Unify the developer…")
+  expect(cardFrame).toContain("acme/platform&42")
+  expect(cardFrame).toContain("@alex @mira")
+
   const item = mockWorkspace.items[0]
   expect(item).toBeDefined()
   if (!item) return

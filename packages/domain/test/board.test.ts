@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest"
 
 describe("work item board", () => {
   it("derives workflow columns from state and scoped labels", () => {
-    expect(mockWorkspace.items.map(workflowColumnOf)).toEqual(["ready", "doing", "review"])
+    expect(mockWorkspace.items.map(workflowColumnOf)).toEqual(["ready", "doing", "review", "closed"])
     expect(workItemsByColumn(mockWorkspace.items).doing).toHaveLength(1)
   })
 

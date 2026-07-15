@@ -1,4 +1,18 @@
+import type { WorkItem } from "@github-work-items/domain"
+
 const dragSourcePrefix = "work-item:"
+
+export type WorkItemStateFilter = "open" | "closed" | "all"
+
+export const workItemStateFilters: readonly WorkItemStateFilter[] = ["open", "closed", "all"]
+
+export const filterWorkItems = (items: readonly WorkItem[], filter: WorkItemStateFilter) =>
+  filter === "all" ? items : items.filter((item) => item.state === filter.toUpperCase())
+
+export const nextWorkItemStateFilter = (filter: WorkItemStateFilter) => {
+  const index = workItemStateFilters.indexOf(filter)
+  return workItemStateFilters[(index + 1) % workItemStateFilters.length] ?? "open"
+}
 
 export const visibleWindowStart = (itemCount: number, capacity: number, selectedIndex: number) => {
   const safeCapacity = Math.max(1, capacity)

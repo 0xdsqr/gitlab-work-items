@@ -3,11 +3,11 @@ import { TextAttributes } from "@opentui/core"
 import { useState } from "react"
 import { colors } from "../theme.ts"
 
-export type Surface = "overview" | "board"
+export type Surface = "board" | "work-items"
 
 const surfaces: readonly { readonly id: Surface; readonly label: string; readonly key: string }[] = [
-  { id: "overview", label: "Overview", key: "1" },
-  { id: "board", label: "Board", key: "2" },
+  { id: "board", label: "Board", key: "1" },
+  { id: "work-items", label: "Work Items", key: "2" },
 ]
 
 export const scopes: readonly { readonly id: WorkItemScope; readonly label: string }[] = [
