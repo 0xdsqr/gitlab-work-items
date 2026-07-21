@@ -1,4 +1,5 @@
 {
+  bun,
   package,
   pkgs,
   system,
@@ -31,6 +32,14 @@ let
     '';
   };
 
+  audit = pkgs.writeShellApplication {
+    name = "github-work-items-audit";
+    runtimeInputs = [ bun ];
+    text = ''
+      exec bun audit --ignore=GHSA-4x5r-pxfx-6jf8 "$@"
+    '';
+  };
+
   mock = pkgs.writeShellApplication {
     name = "github-work-items-mock";
     text = ''
@@ -42,6 +51,7 @@ in
 {
   default = app "${package}/bin/github-work-items" "Browse GitLab work items from the terminal";
   mock = app "${mock}/bin/github-work-items-mock" "Run the TUI with deterministic sample data";
+  audit = app "${audit}/bin/github-work-items-audit" "Audit locked Bun dependencies for known vulnerabilities";
   check = app "${allChecks}/bin/github-work-items-check" "Run every repository check";
   format-check = checkApp "format-check" "formatting" "Check formatting without changing files";
   lint = checkApp "lint" "lint" "Lint the TypeScript workspace";

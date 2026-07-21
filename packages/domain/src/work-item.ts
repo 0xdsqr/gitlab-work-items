@@ -59,7 +59,9 @@ export type WorkItemScope = "assigned" | "created" | "organization"
 export const typeLabel = (type: WorkItemType) => type.toLowerCase().replaceAll("_", " ")
 
 export const relativeAge = (timestamp: string, now = Date.now()) => {
-  const elapsedMinutes = Math.max(0, Math.floor((now - Date.parse(timestamp)) / 60_000))
+  const parsed = Date.parse(timestamp)
+  if (!Number.isFinite(parsed)) return "unknown"
+  const elapsedMinutes = Math.max(0, Math.floor((now - parsed) / 60_000))
   if (elapsedMinutes < 60) return `${elapsedMinutes}m`
   const hours = Math.floor(elapsedMinutes / 60)
   if (hours < 24) return `${hours}h`

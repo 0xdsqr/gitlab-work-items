@@ -24,16 +24,25 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
+          version = (builtins.fromJSON (builtins.readFile ./package.json)).version;
           source = import ./nix/source.nix { inherit (pkgs) lib; };
-          nodeModules = pkgs.callPackage ./nix/node-modules.nix { inherit source; };
-          package = pkgs.callPackage ./nix/package.nix { inherit nodeModules source; };
+          bun = pkgs.callPackage ./nix/bun.nix { };
+          nodeModules = pkgs.callPackage ./nix/node-modules.nix { inherit bun source version; };
+          package = pkgs.callPackage ./nix/package.nix {
+            inherit
+              bun
+              nodeModules
+              source
+              version
+              ;
+          };
           treefmtEval = treefmt-nix.lib.evalModule pkgs ./nix/treefmt.nix;
         in
         {
           formatter = treefmtEval.config.build.wrapper;
 
           devShells.default = import ./nix/devshell.nix {
-            inherit pkgs;
+            inherit bun pkgs;
             treefmtWrapper = treefmtEval.config.build.wrapper;
           };
 
@@ -43,10 +52,18 @@
             node-modules = nodeModules;
           };
 
-          apps = import ./nix/apps.nix { inherit package pkgs system; };
+          apps = import ./nix/apps.nix {
+            inherit
+              bun
+              package
+              pkgs
+              system
+              ;
+          };
 
           checks = import ./nix/checks.nix {
             inherit
+              bun
               nodeModules
               package
               pkgs

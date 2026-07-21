@@ -1,19 +1,8 @@
 import { TextAttributes } from "@opentui/core"
+import { createMemo } from "solid-js"
 import { colors } from "../theme.ts"
 
-export const CreateWorkItemModal = ({
-  screenWidth,
-  screenHeight,
-  project,
-  title,
-  field,
-  busy,
-  onProjectChange,
-  onTitleChange,
-  onFieldChange,
-  onSubmit,
-  onClose,
-}: {
+type CreateWorkItemModalProps = {
   screenWidth: number
   screenHeight: number
   project: string
@@ -25,15 +14,17 @@ export const CreateWorkItemModal = ({
   onFieldChange: (field: "project" | "title") => void
   onSubmit: () => void
   onClose: () => void
-}) => {
-  const width = Math.min(72, Math.max(24, screenWidth - 4))
+}
+
+export const CreateWorkItemModal = (props: CreateWorkItemModalProps) => {
+  const width = createMemo(() => Math.min(72, Math.max(24, props.screenWidth - 4)))
   const height = 12
   return (
     <box
       position="absolute"
-      left={Math.max(1, Math.floor((screenWidth - width) / 2))}
-      top={Math.max(1, Math.floor((screenHeight - height) / 2))}
-      width={width}
+      left={Math.max(1, Math.floor((props.screenWidth - width()) / 2))}
+      top={Math.max(1, Math.floor((props.screenHeight - height) / 2))}
+      width={width()}
       height={height}
       zIndex={100}
       border
@@ -49,48 +40,48 @@ export const CreateWorkItemModal = ({
       </text>
       <text fg={colors.muted}>Choose a project and give the work a clear title.</text>
       <box height={1} />
-      <text fg={field === "project" ? colors.active : colors.muted}>Project path</text>
+      <text fg={props.field === "project" ? colors.active : colors.muted}>Project path</text>
       <input
-        value={project}
-        focused={field === "project"}
+        value={props.project}
+        focused={props.field === "project"}
         placeholder="group/project"
         backgroundColor={colors.panelRaised}
         focusedBackgroundColor={colors.selected}
         textColor={colors.text}
         focusedTextColor={colors.text}
         placeholderColor={colors.muted}
-        onMouseDown={() => onFieldChange("project")}
-        onInput={onProjectChange}
-        onSubmit={() => onFieldChange("title")}
+        onMouseDown={() => props.onFieldChange("project")}
+        onInput={props.onProjectChange}
+        onSubmit={() => props.onFieldChange("title")}
       />
-      <text fg={field === "title" ? colors.active : colors.muted}>Title</text>
+      <text fg={props.field === "title" ? colors.active : colors.muted}>Title</text>
       <input
-        value={title}
-        focused={field === "title"}
+        value={props.title}
+        focused={props.field === "title"}
         placeholder="What needs to change?"
         backgroundColor={colors.panelRaised}
         focusedBackgroundColor={colors.selected}
         textColor={colors.text}
         focusedTextColor={colors.text}
         placeholderColor={colors.muted}
-        onMouseDown={() => onFieldChange("title")}
-        onInput={onTitleChange}
-        onSubmit={onSubmit}
+        onMouseDown={() => props.onFieldChange("title")}
+        onInput={props.onTitleChange}
+        onSubmit={props.onSubmit}
       />
       <box height={1} />
       <box flexDirection="row" justifyContent="space-between">
-        <text fg={colors.muted} onMouseDown={onClose}>
+        <text fg={colors.muted} onMouseDown={props.onClose}>
           esc Cancel
         </text>
         <text
-          fg={busy ? colors.muted : colors.text}
-          bg={busy ? colors.border : colors.confirm}
+          fg={props.busy ? colors.muted : colors.text}
+          bg={props.busy ? colors.border : colors.confirm}
           attributes={TextAttributes.BOLD}
           onMouseDown={() => {
-            if (!busy) onSubmit()
+            if (!props.busy) props.onSubmit()
           }}
         >
-          {busy ? " Creating… " : " + Create work item "}
+          {props.busy ? " Creating… " : " + Create work item "}
         </text>
       </box>
     </box>

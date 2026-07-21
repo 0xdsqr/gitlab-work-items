@@ -1,4 +1,5 @@
 {
+  bun,
   nodeModules,
   package,
   pkgs,
@@ -10,10 +11,10 @@ let
     name: command:
     pkgs.stdenvNoCC.mkDerivation {
       pname = "github-work-items-${name}";
-      version = "0.1.0";
+      inherit (package) version;
       src = source;
       nativeBuildInputs = [
-        pkgs.bun
+        bun
         pkgs.nodejs_24
       ];
       dontConfigure = true;

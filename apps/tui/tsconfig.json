@@ -3,8 +3,8 @@
     "allowImportingTsExtensions": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "@opentui/react",
+    "jsx": "preserve",
+    "jsxImportSource": "@opentui/solid",
     "lib": ["ESNext", "DOM"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -18,5 +18,5 @@
     "target": "ESNext",
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["build.ts", "src/**/*.ts", "src/**/*.tsx", "test/**/*.tsx"]
 }

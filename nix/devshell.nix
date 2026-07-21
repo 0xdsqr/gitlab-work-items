@@ -1,19 +1,22 @@
 {
+  bun,
   pkgs,
   treefmtWrapper,
 }:
 pkgs.mkShell {
-  packages = with pkgs; [
-    actionlint
+  packages = [
     bun
+    treefmtWrapper
+  ]
+  ++ (with pkgs; [
+    actionlint
     git
     glab
     nodejs_24
     oxfmt
     oxlint
-    treefmtWrapper
     typescript
-  ];
+  ]);
 
   shellHook = ''
     export PATH="$PWD/node_modules/.bin:$PATH"

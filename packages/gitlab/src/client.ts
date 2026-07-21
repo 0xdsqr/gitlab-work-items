@@ -10,7 +10,7 @@ import {
   type Workspace,
 } from "@github-work-items/domain"
 import { Context, Effect, Layer, Schema } from "effect"
-import { gitLabConfigFromEnv, issuePathFor } from "./config.ts"
+import { gitLabApiUrl, gitLabConfigFromEnv, gitLabHostname, issuePathFor, trustedGitLabWebUrl } from "./config.ts"
 import { GitLabRequestError } from "./errors.ts"
 
 const RawUser = Schema.Struct({
@@ -33,7 +33,7 @@ const RawIssue = Schema.Struct({
   iid: Schema.Number,
   title: Schema.String,
   description: Schema.NullOr(Schema.String),
-  state: Schema.String,
+  state: Schema.Literals(["opened", "closed"]),
   labels: Schema.Array(RawIssueLabel),
   updated_at: Schema.String,
   issue_type: Schema.optional(Schema.String),
@@ -87,7 +87,7 @@ const normalizeIssue = (issue: typeof RawIssue.Type, previousLabels: readonly Wo
 
 const platformOpener = () => {
   if (process.platform === "darwin") return ["open"] as const
-  if (process.platform === "win32") return ["cmd", "/c", "start", ""] as const
+  if (process.platform === "win32") return ["rundll32", "url.dll,FileProtocolHandler"] as const
   return ["xdg-open"] as const
 }
 
@@ -170,10 +170,12 @@ export class GitLabClient extends Context.Service<
         }).pipe(Effect.map(normalizeIssue))
       },
       openWorkItem: (item) => {
-        if (gitLabConfigFromEnv().mock) return Effect.void
-        const command = [...platformOpener(), item.webUrl]
+        const config = gitLabConfigFromEnv()
+        if (config.mock) return Effect.void
         return Effect.tryPromise({
           try: async () => {
+            const url = trustedGitLabWebUrl(config.host, item.webUrl)
+            const command = [...platformOpener(), url]
             const proc = Bun.spawn({ cmd: command, stdout: "ignore", stderr: "pipe" })
             const [exitCode, stderr] = await Promise.all([proc.exited, readStream(proc.stderr)])
             if (exitCode !== 0) throw new Error(stderr.trim() || `${command[0]} exited with ${exitCode}`)
@@ -202,16 +204,18 @@ const request = <S extends Schema.Top>(
     const unknown = yield* Effect.tryPromise({
       try: async () => {
         if (config.token) {
-          const response = await fetch(`${config.host}/api/v4/${path}`, {
+          const response = await fetch(gitLabApiUrl(config.host, path, true), {
             method,
             headers: { "PRIVATE-TOKEN": config.token, "Content-Type": "application/x-www-form-urlencoded" },
+            redirect: "error",
+            signal: AbortSignal.timeout(30_000),
             ...(method === "GET" ? {} : { body: new URLSearchParams(fields) }),
           })
           if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${await response.text()}`)
           return response.json() as Promise<unknown>
         }
 
-        const host = new URL(config.host).host
+        const host = gitLabHostname(config.host)
         const args = [
           "glab",
           "api",

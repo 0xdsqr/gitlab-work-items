@@ -1,35 +1,18 @@
 import { relativeAge, type WorkItem } from "@github-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
-import { useState } from "react"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import { colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"
 import { nextWorkItemStateFilter, visibleWindowStart, type WorkItemStateFilter } from "../ui-state.ts"
 import { LabelChips } from "./LabelChips.tsx"
+import { StyledSpan } from "./StyledSpan.tsx"
 
-const Separator = ({ height }: { height: number }) => (
-  <box width={1} height={height} flexDirection="column">
-    {Array.from({ length: height }, (_, index) => (
-      <text key={index} fg={colors.border}>
-        │
-      </text>
-    ))}
+const Separator = (props: { height: number }) => (
+  <box width={1} height={props.height} flexDirection="column">
+    <For each={Array.from({ length: props.height })}>{() => <text fg={colors.border}>│</text>}</For>
   </box>
 )
 
-export const WorkItems = ({
-  width,
-  height,
-  items,
-  allItems,
-  filter,
-  query,
-  queryEditing,
-  selectedIndex,
-  onSelect,
-  onFilterChange,
-  onQueryChange,
-  onQueryEditingChange,
-  onCreate,
-}: {
+type WorkItemsProps = {
   width: number
   height: number
   items: readonly WorkItem[]
@@ -43,37 +26,43 @@ export const WorkItems = ({
   onQueryChange: (query: string) => void
   onQueryEditingChange: (editing: boolean) => void
   onCreate: () => void
-}) => {
-  const [createHovered, setCreateHovered] = useState(false)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-  const statusCount =
-    filter === "all" ? allItems.length : allItems.filter((item) => item.state === filter.toUpperCase()).length
-  const bodyHeight = Math.max(4, height - 3)
-  const listWidth = width >= 92 ? Math.max(42, Math.floor(width * 0.58)) : width
-  const detailWidth = Math.max(1, width - listWidth - 1)
-  const capacity = Math.max(1, Math.floor(bodyHeight / 2))
-  const start = visibleWindowStart(items.length, capacity, selectedIndex)
-  const selected = items[selectedIndex] ?? null
+}
+
+export const WorkItems = (props: WorkItemsProps) => {
+  const [createHovered, setCreateHovered] = createSignal(false)
+  const [hoveredIndex, setHoveredIndex] = createSignal<number | null>(null)
+  const statusCount = createMemo(() =>
+    props.filter === "all"
+      ? props.allItems.length
+      : props.allItems.filter((item) => item.state === props.filter.toUpperCase()).length,
+  )
+  const bodyHeight = createMemo(() => Math.max(4, props.height - 3))
+  const listWidth = createMemo(() => (props.width >= 92 ? Math.max(42, Math.floor(props.width * 0.58)) : props.width))
+  const detailWidth = createMemo(() => Math.max(1, props.width - listWidth() - 1))
+  const capacity = createMemo(() => Math.max(1, Math.floor(bodyHeight() / 2)))
+  const start = createMemo(() => visibleWindowStart(props.items.length, capacity(), props.selectedIndex))
+  const visibleItems = createMemo(() => props.items.slice(start(), start() + capacity()))
+  const selected = createMemo(() => props.items[props.selectedIndex] ?? null)
 
   const scroll = (event: MouseEvent) => {
-    if (!event.scroll || items.length === 0) return
+    if (!event.scroll || props.items.length === 0) return
     const direction = event.scroll.direction === "down" ? 1 : event.scroll.direction === "up" ? -1 : 0
     if (direction === 0) return
-    onSelect(Math.max(0, Math.min(items.length - 1, selectedIndex + direction)))
+    props.onSelect(Math.max(0, Math.min(props.items.length - 1, props.selectedIndex + direction)))
     event.stopPropagation()
   }
 
   return (
-    <box width={width} height={height} flexDirection="column">
+    <box width={props.width} height={props.height} flexDirection="column">
       <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
           Work items
         </text>
         <text
           fg={colors.text}
-          bg={createHovered ? colors.accentStrong : colors.confirm}
+          bg={createHovered() ? colors.accentStrong : colors.confirm}
           attributes={TextAttributes.BOLD}
-          onMouseDown={onCreate}
+          onMouseDown={props.onCreate}
           onMouseOver={() => setCreateHovered(true)}
           onMouseOut={() => setCreateHovered(false)}
         >
@@ -86,15 +75,26 @@ export const WorkItems = ({
           fg={colors.text}
           bg={colors.selected}
           attributes={TextAttributes.BOLD}
-          onMouseDown={() => onFilterChange(nextWorkItemStateFilter(filter))}
+          onMouseDown={() => props.onFilterChange(nextWorkItemStateFilter(props.filter))}
         >
-          {` status:${filter} `}
+          {` status:${props.filter} `}
         </text>
         <text fg={colors.border}> │ </text>
-        {queryEditing ? (
+        <Show
+          when={props.queryEditing}
+          fallback={
+            <text
+              flexGrow={1}
+              fg={props.query ? colors.text : colors.subtle}
+              onMouseDown={() => props.onQueryEditingChange(true)}
+            >
+              {props.query || "/ Search work items"}
+            </text>
+          }
+        >
           <input
             flexGrow={1}
-            value={query}
+            value={props.query}
             focused
             placeholder="Search"
             backgroundColor={colors.panelRaised}
@@ -102,115 +102,121 @@ export const WorkItems = ({
             textColor={colors.text}
             focusedTextColor={colors.text}
             placeholderColor={colors.subtle}
-            onInput={onQueryChange}
-            onSubmit={() => onQueryEditingChange(false)}
+            onInput={props.onQueryChange}
+            onSubmit={() => props.onQueryEditingChange(false)}
           />
-        ) : (
-          <text flexGrow={1} fg={query ? colors.text : colors.subtle} onMouseDown={() => onQueryEditingChange(true)}>
-            {query || "/ Search work items"}
-          </text>
-        )}
-        {query ? (
-          <text fg={colors.muted} onMouseDown={() => onQueryChange("")}>
+        </Show>
+        <Show when={props.query}>
+          <text fg={colors.muted} onMouseDown={() => props.onQueryChange("")}>
             {" × "}
           </text>
-        ) : null}
-        <text fg={colors.subtle}>{`${items.length}/${statusCount}`}</text>
+        </Show>
+        <text fg={colors.subtle}>{`${props.items.length}/${statusCount()}`}</text>
       </box>
-      <text fg={colors.border}>{"─".repeat(Math.max(1, width))}</text>
+      <text fg={colors.border}>{"─".repeat(Math.max(1, props.width))}</text>
 
-      <box height={bodyHeight} flexDirection="row">
-        <box width={listWidth} height={bodyHeight} flexDirection="column" onMouseScroll={scroll}>
-          {items.length === 0 ? (
-            <box height={3} paddingLeft={1} flexDirection="column" justifyContent="center">
-              <text fg={colors.text}>
-                {query ? "No work items match this search." : `No ${filter === "all" ? "" : `${filter} `}work items.`}
-              </text>
-              <text fg={colors.muted}>
-                {query ? "Press / to edit or clear the search." : "Press f to change status."}
-              </text>
-            </box>
-          ) : (
-            items.slice(start, start + capacity).map((item, localIndex) => {
-              const index = start + localIndex
-              const active = index === selectedIndex
-              return (
-                <box
-                  key={item.id}
-                  height={2}
-                  paddingLeft={1}
-                  paddingRight={1}
-                  backgroundColor={active ? colors.selected : hoveredIndex === index ? colors.panel : colors.background}
-                  onMouseDown={() => onSelect(index)}
-                  onMouseOver={() => setHoveredIndex(index)}
-                  onMouseOut={() => setHoveredIndex((current) => (current === index ? null : current))}
-                  flexDirection="column"
-                >
-                  <text fg={colors.text} attributes={active ? TextAttributes.BOLD : 0}>
-                    <span fg={active ? colors.accent : colors.border}>{active ? "▌" : " "}</span>
-                    <span fg={typeColor(item)}>{workItemTypeIcon(item)}</span>
-                    <span fg={colors.active}>{` ${ellipsis(item.reference, 18)} `}</span>
-                    {ellipsis(item.title, Math.max(8, listWidth - Math.min(18, item.reference.length) - 14))}
-                    <span fg={colors.subtle}>{`  ${relativeAge(item.updatedAt)}`}</span>
-                  </text>
-                  <text selectable={false}>
-                    <span
-                      fg={colors.muted}
-                    >{`  ${item.assignees.map((name) => `@${name}`).join(" ") || `@${item.author}`}  `}</span>
-                    <LabelChips labels={item.labels} width={Math.max(8, listWidth - 20)} />
-                  </text>
-                </box>
-              )
-            })
-          )}
+      <box height={bodyHeight()} flexDirection="row">
+        <box width={listWidth()} height={bodyHeight()} flexDirection="column" onMouseScroll={scroll}>
+          <Show
+            when={props.items.length > 0}
+            fallback={
+              <box height={3} paddingLeft={1} flexDirection="column" justifyContent="center">
+                <text fg={colors.text}>
+                  {props.query
+                    ? "No work items match this search."
+                    : `No ${props.filter === "all" ? "" : `${props.filter} `}work items.`}
+                </text>
+                <text fg={colors.muted}>
+                  {props.query ? "Press / to edit or clear the search." : "Press f to change status."}
+                </text>
+              </box>
+            }
+          >
+            <For each={visibleItems()}>
+              {(item, localIndex) => {
+                const index = () => start() + localIndex()
+                const active = () => index() === props.selectedIndex
+                return (
+                  <box
+                    height={2}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    backgroundColor={
+                      active() ? colors.selected : hoveredIndex() === index() ? colors.panel : colors.background
+                    }
+                    onMouseDown={() => props.onSelect(index())}
+                    onMouseOver={() => setHoveredIndex(index())}
+                    onMouseOut={() => setHoveredIndex((current) => (current === index() ? null : current))}
+                    flexDirection="column"
+                  >
+                    <text fg={colors.text} attributes={active() ? TextAttributes.BOLD : 0}>
+                      <StyledSpan fg={active() ? colors.accent : colors.border}>{active() ? "▌" : " "}</StyledSpan>
+                      <StyledSpan fg={typeColor(item)}>{workItemTypeIcon(item)}</StyledSpan>
+                      <StyledSpan fg={colors.active}>{` ${ellipsis(item.reference, 18)} `}</StyledSpan>
+                      {ellipsis(item.title, Math.max(8, listWidth() - Math.min(18, item.reference.length) - 14))}
+                      <StyledSpan fg={colors.subtle}>{`  ${relativeAge(item.updatedAt)}`}</StyledSpan>
+                    </text>
+                    <text selectable={false}>
+                      <StyledSpan fg={colors.muted}>
+                        {`  ${item.assignees.map((name) => `@${name}`).join(" ") || `@${item.author}`}  `}
+                      </StyledSpan>
+                      <LabelChips labels={item.labels} width={Math.max(8, listWidth() - 20)} />
+                    </text>
+                  </box>
+                )
+              }}
+            </For>
+          </Show>
         </box>
 
-        {width >= 92 ? (
-          <>
-            <Separator height={bodyHeight} />
-            <box width={detailWidth} height={bodyHeight} paddingLeft={1} paddingRight={1} flexDirection="column">
-              <text fg={colors.muted} attributes={TextAttributes.BOLD}>
-                WORK ITEM
-              </text>
-              {selected ? (
+        <Show when={props.width >= 92}>
+          <Separator height={bodyHeight()} />
+          <box width={detailWidth()} height={bodyHeight()} paddingLeft={1} paddingRight={1} flexDirection="column">
+            <text fg={colors.muted} attributes={TextAttributes.BOLD}>
+              WORK ITEM
+            </text>
+            <Show when={selected()} fallback={<text fg={colors.muted}>Select a work item to inspect it.</text>}>
+              {(item) => (
                 <>
                   <text fg={colors.text} attributes={TextAttributes.BOLD}>
-                    {ellipsis(selected.title, Math.max(10, detailWidth - 2))}
+                    {ellipsis(item().title, Math.max(10, detailWidth() - 2))}
                   </text>
                   <text fg={colors.muted}>
-                    <span
-                      fg={typeColor(selected)}
-                    >{`${workItemTypeIcon(selected)} ${selected.type.toLowerCase()}`}</span>
-                    <span fg={selected.state === "OPEN" ? colors.active : colors.success}>
-                      {`  ${selected.state.toLowerCase()}`}
-                    </span>
-                    {`  ·  ${selected.reference}  ·  updated ${relativeAge(selected.updatedAt)} ago`}
+                    <StyledSpan fg={typeColor(item())}>
+                      {`${workItemTypeIcon(item())} ${item().type.toLowerCase()}`}
+                    </StyledSpan>
+                    <StyledSpan fg={item().state === "OPEN" ? colors.active : colors.success}>
+                      {`  ${item().state.toLowerCase()}`}
+                    </StyledSpan>
+                    {`  ·  ${item().reference}  ·  updated ${relativeAge(item().updatedAt)} ago`}
                   </text>
                   <text>
-                    <LabelChips labels={selected.labels} width={Math.max(8, detailWidth - 2)} />
+                    <LabelChips labels={item().labels} width={Math.max(8, detailWidth() - 2)} />
                   </text>
-                  <text fg={colors.border}>{"─".repeat(Math.max(1, detailWidth - 2))}</text>
+                  <text fg={colors.border}>{"─".repeat(Math.max(1, detailWidth() - 2))}</text>
                   <text fg={colors.text}>
-                    {ellipsis(selected.description || "No description.", Math.max(10, detailWidth - 2))}
+                    {ellipsis(item().description || "No description.", Math.max(10, detailWidth() - 2))}
                   </text>
                   <box height={1} />
-                  <text fg={colors.muted}>{`Project    ${selected.namespace}`}</text>
-                  <text fg={colors.muted}>{`Author     @${selected.author}`}</text>
-                  <text
-                    fg={colors.muted}
-                  >{`Assignees  ${selected.assignees.map((name) => `@${name}`).join(", ") || "none"}`}</text>
+                  <text fg={colors.muted}>{`Project    ${item().namespace}`}</text>
+                  <text fg={colors.muted}>{`Author     @${item().author}`}</text>
+                  <text fg={colors.muted}>
+                    {`Assignees  ${
+                      item()
+                        .assignees.map((name) => `@${name}`)
+                        .join(", ") || "none"
+                    }`}
+                  </text>
                   <box height={1} />
                   <text fg={colors.active}>o Open in GitLab</text>
-                  <text fg={selected.state === "OPEN" ? colors.error : colors.success}>
-                    {`x  ${selected.state === "OPEN" ? "Close" : "Reopen"} work item`}
+                  <text fg={item().state === "OPEN" ? colors.error : colors.success}>
+                    {`x  ${item().state === "OPEN" ? "Close" : "Reopen"} work item`}
                   </text>
                 </>
-              ) : (
-                <text fg={colors.muted}>Select a work item to inspect it.</text>
               )}
-            </box>
-          </>
-        ) : null}
+            </Show>
+          </box>
+        </Show>
       </box>
     </box>
   )

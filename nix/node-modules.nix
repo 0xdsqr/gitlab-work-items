@@ -3,13 +3,28 @@
   lib,
   source,
   stdenvNoCC,
+  version,
 }:
 let
   hashes = builtins.fromJSON (builtins.readFile ./hashes.json);
+  installCpu =
+    if stdenvNoCC.hostPlatform.isAarch64 then
+      "arm64"
+    else if stdenvNoCC.hostPlatform.isx86_64 then
+      "x64"
+    else
+      throw "Unsupported Bun dependency architecture: ${stdenvNoCC.hostPlatform.system}";
+  installOs =
+    if stdenvNoCC.hostPlatform.isDarwin then
+      "darwin"
+    else if stdenvNoCC.hostPlatform.isLinux then
+      "linux"
+    else
+      throw "Unsupported Bun dependency platform: ${stdenvNoCC.hostPlatform.system}";
 in
 stdenvNoCC.mkDerivation {
   pname = "github-work-items-node-modules";
-  version = "0.1.0";
+  inherit version;
   src = source;
 
   nativeBuildInputs = [ bun ];
@@ -21,7 +36,7 @@ stdenvNoCC.mkDerivation {
     runHook preBuild
     export HOME="$TMPDIR"
     export BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache"
-    bun install --frozen-lockfile --ignore-scripts --no-progress
+    bun install --frozen-lockfile --ignore-scripts --no-progress --cpu ${installCpu} --os ${installOs}
     runHook postBuild
   '';
 

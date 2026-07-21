@@ -1,21 +1,21 @@
 {
   "name": "@github-work-items/tui",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build src/index.tsx --target=bun --external '@opentui/*' --external react --external 'react/*' --external scheduler --external 'scheduler/*' --outdir=dist",
-    "dev": "bun --watch src/index.tsx",
-    "start": "bun src/index.tsx",
-    "test": "vitest run --passWithNoTests && bun test ./test/Interactions.bun.tsx",
+    "build": "bun run build.ts",
+    "dev": "bun --preload @opentui/solid/preload --watch src/index.tsx",
+    "start": "bun --preload @opentui/solid/preload src/index.tsx",
+    "test": "vitest run --passWithNoTests && bun test --preload @opentui/solid/preload ./test/Interactions.bun.tsx",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@github-work-items/domain": "workspace:*",
-    "@github-work-items/gitlab": "workspace:*",
-    "@opentui/core": "0.4.2",
-    "@opentui/react": "0.4.2",
-    "effect": "4.0.0-beta.90",
-    "react": "19.2.7",
-    "scheduler": "0.27.0"
+    "@github-work-items/domain": "workspace:0.1.0",
+    "@github-work-items/gitlab": "workspace:0.1.0",
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5",
+    "effect": "4.0.0-beta.100",
+    "solid-js": "1.9.12"
   }
 }

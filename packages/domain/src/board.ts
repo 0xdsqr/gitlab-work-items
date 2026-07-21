@@ -27,13 +27,17 @@ export const workflowColumnOf = (item: WorkItem): WorkflowColumnId => {
   return matched?.[0] ?? "backlog"
 }
 
-export const workItemsByColumn = (items: readonly WorkItem[]): Record<WorkflowColumnId, readonly WorkItem[]> => ({
-  backlog: items.filter((item) => workflowColumnOf(item) === "backlog"),
-  ready: items.filter((item) => workflowColumnOf(item) === "ready"),
-  doing: items.filter((item) => workflowColumnOf(item) === "doing"),
-  review: items.filter((item) => workflowColumnOf(item) === "review"),
-  closed: items.filter((item) => workflowColumnOf(item) === "closed"),
-})
+export const workItemsByColumn = (items: readonly WorkItem[]): Record<WorkflowColumnId, readonly WorkItem[]> => {
+  const grouped: Record<WorkflowColumnId, WorkItem[]> = {
+    backlog: [],
+    ready: [],
+    doing: [],
+    review: [],
+    closed: [],
+  }
+  for (const item of items) grouped[workflowColumnOf(item)].push(item)
+  return grouped
+}
 
 export type WorkflowTransition = {
   readonly stateEvent: "close" | "reopen" | null

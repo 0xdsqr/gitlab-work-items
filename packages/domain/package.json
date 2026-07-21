@@ -1,5 +1,6 @@
 {
   "name": "@github-work-items/domain",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
@@ -8,6 +9,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.90"
+    "effect": "4.0.0-beta.100"
   }
 }

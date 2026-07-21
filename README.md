@@ -35,6 +35,12 @@ nix profile install github:0xdsqr/github-work-items
 github-work-items
 ```
 
+For a reproducible release rather than the moving `master` branch, pin a semantic version tag:
+
+```sh
+nix run github:0xdsqr/github-work-items/v0.1.0
+```
+
 The flake currently publishes tested packages for Apple Silicon macOS and x86-64 Linux. A Homebrew tap can be added
 once tagged releases and stable versioning are in place; Nix is the supported installation path for now.
 
@@ -61,7 +67,8 @@ Use `nix run .#mock` or `bun run mock` to run local fixtures.
 For live data, authenticate once with `glab auth login` or export `GITLAB_TOKEN`. The token needs `api` scope for board
 updates and creation (`read_api` is sufficient only for viewing). A separate
 username is not required because the app calls GitLab's current-user endpoint. For a self-managed instance, set
-`GITLAB_HOST`; for the organization scope, set `GWI_GROUP` to the group's full path.
+`GITLAB_HOST`; direct token authentication requires HTTPS except for loopback development hosts. For the organization
+scope, set `GWI_GROUP` to the group's full path.
 
 For local direnv credentials, create an ignored `.envrc.local`. The tracked `.envrc` loads it automatically:
 
@@ -79,20 +86,34 @@ GWI_GROUP=acme bun run dev
 
 Nix is the reproducible CI and packaging interface. Bun is the faster inner loop after entering the development shell.
 
-| Purpose           | Nix                                    | Bun                                                                         |
-| ----------------- | -------------------------------------- | --------------------------------------------------------------------------- |
-| Run live data     | `nix run .`                            | `bun run start`                                                             |
-| Run sample data   | `nix run .#mock`                       | `bun run mock`                                                              |
-| Format files      | `nix fmt`                              | `bun run format`                                                            |
-| Check formatting  | `nix run .#format-check`               | `bun run format:check`                                                      |
-| Lint              | `nix run .#lint`                       | `bun run lint`                                                              |
-| Type-check        | `nix run .#typecheck`                  | `bun run typecheck`                                                         |
-| Test              | `nix run .#test`                       | `bun run test`                                                              |
-| Run every check   | `nix run .#check` or `nix flake check` | `bun run format:check && bun run lint && bun run typecheck && bun run test` |
-| Build the package | `nix build .#github-work-items`        | `bun run build`                                                             |
+| Purpose            | Nix                                    | Bun                                                                         |
+| ------------------ | -------------------------------------- | --------------------------------------------------------------------------- |
+| Run live data      | `nix run .`                            | `bun run start`                                                             |
+| Run sample data    | `nix run .#mock`                       | `bun run mock`                                                              |
+| Format files       | `nix fmt`                              | `bun run format`                                                            |
+| Check formatting   | `nix run .#format-check`               | `bun run format:check`                                                      |
+| Audit dependencies | `nix run .#audit`                      | `bun run audit`                                                             |
+| Lint               | `nix run .#lint`                       | `bun run lint`                                                              |
+| Type-check         | `nix run .#typecheck`                  | `bun run typecheck`                                                         |
+| Test               | `nix run .#test`                       | `bun run test`                                                              |
+| Run every check    | `nix run .#check` or `nix flake check` | `bun run format:check && bun run lint && bun run typecheck && bun run test` |
+| Build the package  | `nix build .#github-work-items`        | `bun run build`                                                             |
 
 The tracked `.oxfmtrc.json` and `.oxlintrc.json` files are authoritative for both workflows. Bun passes them explicitly
 to Oxfmt and Oxlint; treefmt and the Nix checks use those same files with Nix-pinned matching tool versions.
+The online dependency audit is intentionally separate from the reproducible flake checks; CI runs both, and Dependabot
+tracks the Bun lockfile, Nix flake inputs, and pinned GitHub Actions.
+
+The audit narrowly ignores `GHSA-4x5r-pxfx-6jf8`, a low-severity build-time advisory in the Babel 7 release pinned by
+`@opentui/solid`. Babel 8 is incompatible with OpenTUI's current Solid transform; remove this exception when OpenTUI
+publishes a compatible patched dependency.
+
+## Releases
+
+`package.json` is the single source of truth for the version consumed by the Nix package. Pushing the matching semantic
+version tag (for example, `v0.1.0`) runs the full Nix quality gate, builds the package, and publishes a GitHub release
+with generated notes. A mismatched tag is rejected before publication. GitHub's source archives plus the tagged flake
+are the release artifact; a separate registry is unnecessary for the supported Nix installation path.
 
 Controls:
 
@@ -118,7 +139,7 @@ remains available while the board focuses one column at a time.
 
 ## Workspace
 
-- `apps/tui` — OpenTUI React application and interaction shell.
+- `apps/tui` — OpenTUI Solid application and interaction shell.
 - `packages/domain` — work-item model and pure workflow transition policy.
 - `packages/gitlab` — Effect service, authentication, REST queries/mutations, browser opening, and schema decoding.
 - `nix` — development shell, formatter, dependency closure, package, and checks.
@@ -128,7 +149,7 @@ remains available while the board focuses one column at a time.
 [ghui](https://github.com/kitlangton/ghui) is the primary product and code-organization reference. The project also
 draws on [Executor](https://github.com/UsefulSoftwareCo/executor) for Effect-oriented workspace conventions,
 [OpenCode](https://github.com/anomalyco/opencode) for Bun/Nix packaging patterns, and
-[OpenTUI](https://github.com/anomalyco/opentui) for the renderer and React host.
+[OpenTUI](https://github.com/anomalyco/opentui) for the renderer and Solid host.
 
 GitLab's current work-item direction is GraphQL and widget-based. The bootstrap uses the stable Issues REST API for a
 small, reliable live slice while keeping a provider-neutral `WorkItem` model that already represents epics, objectives,

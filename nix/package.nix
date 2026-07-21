@@ -1,13 +1,19 @@
 {
   bun,
+  lib,
   makeWrapper,
   nodeModules,
   source,
   stdenvNoCC,
+  version,
+  xdg-utils,
 }:
+let
+  runtimePrograms = lib.optional stdenvNoCC.hostPlatform.isLinux xdg-utils;
+in
 stdenvNoCC.mkDerivation {
   pname = "github-work-items";
-  version = "0.1.0";
+  inherit version;
   src = source;
 
   nativeBuildInputs = [
@@ -35,9 +41,22 @@ stdenvNoCC.mkDerivation {
     cp -R apps/tui/node_modules "$out/lib/github-work-items/apps/tui/node_modules"
     cp -R node_modules "$out/lib/github-work-items/node_modules"
     makeWrapper ${bun}/bin/bun "$out/bin/github-work-items" \
-      --add-flags "$out/lib/github-work-items/apps/tui/dist/index.js"
+      --add-flags "--preload" \
+      --add-flags "$out/lib/github-work-items/apps/tui/node_modules/@opentui/solid/scripts/preload.js" \
+      --add-flags "$out/lib/github-work-items/apps/tui/dist/index.js" \
+      ${lib.optionalString (
+        runtimePrograms != [ ]
+      ) "--prefix PATH : ${lib.makeBinPath runtimePrograms}"}
     runHook postInstall
   '';
 
-  meta.mainProgram = "github-work-items";
+  meta = {
+    description = "Keyboard-first terminal UI for GitLab work items";
+    homepage = "https://github.com/0xdsqr/github-work-items";
+    mainProgram = "github-work-items";
+    platforms = [
+      "aarch64-darwin"
+      "x86_64-linux"
+    ];
+  };
 }
