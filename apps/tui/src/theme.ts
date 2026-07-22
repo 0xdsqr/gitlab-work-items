@@ -1,4 +1,4 @@
-import type { WorkItem, WorkItemLabel } from "@github-work-items/domain"
+import type { WorkItem, WorkItemLabel } from "@gitlab-work-items/domain"
 
 export const colors = {
   background: "#18171d",

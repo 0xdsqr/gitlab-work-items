@@ -23,7 +23,7 @@ let
       throw "Unsupported Bun dependency platform: ${stdenvNoCC.hostPlatform.system}";
 in
 stdenvNoCC.mkDerivation {
-  pname = "github-work-items-node-modules";
+  pname = "gitlab-work-items-node-modules";
   inherit version;
   src = source;
 

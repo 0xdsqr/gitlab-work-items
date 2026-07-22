@@ -1,4 +1,4 @@
-import type { WorkItemScope } from "@github-work-items/domain"
+import type { WorkItemScope } from "@gitlab-work-items/domain"
 
 export type GitLabConfig = {
   readonly host: string
@@ -26,8 +26,8 @@ const isLoopback = (hostname: string) => hostname === "localhost" || hostname ==
 export const gitLabConfigFromEnv = (env: Record<string, string | undefined> = process.env): GitLabConfig => ({
   host: (nonEmpty(env.GITLAB_HOST) ?? "https://gitlab.com").replace(/\/+$/, ""),
   token: nonEmpty(env.GITLAB_TOKEN) ?? nonEmpty(env.GITLAB_ACCESS_TOKEN),
-  group: nonEmpty(env.GWI_GROUP),
-  mock: env.GWI_MOCK === "1" || env.GWI_MOCK === "true",
+  group: nonEmpty(env.GLWI_GROUP),
+  mock: env.GLWI_MOCK === "1" || env.GLWI_MOCK === "true",
 })
 
 export const gitLabApiUrl = (host: string, path: string, authenticated = false) => {

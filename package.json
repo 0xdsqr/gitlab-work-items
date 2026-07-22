@@ -1,5 +1,5 @@
 {
-  "name": "github-work-items",
+  "name": "gitlab-work-items",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -12,7 +12,7 @@
     "build": "bun run --cwd apps/tui build",
     "dev": "bun run --cwd apps/tui dev",
     "start": "bun run --cwd apps/tui start",
-    "mock": "GWI_MOCK=1 bun run --cwd apps/tui start",
+    "mock": "GLWI_MOCK=1 bun run --cwd apps/tui start",
     "format": "oxfmt --config .oxfmtrc.json .",
     "format:check": "oxfmt --config .oxfmtrc.json --check .",
     "lint": "oxlint --config .oxlintrc.json --deny-warnings .",

@@ -20,7 +20,7 @@ pkgs.mkShell {
 
   shellHook = ''
     export PATH="$PWD/node_modules/.bin:$PATH"
-    echo "github-work-items dev shell"
+    echo "gitlab-work-items dev shell"
     echo "  bun:  $(bun --version)"
     echo "  glab: $(glab --version | head -n 1)"
   '';

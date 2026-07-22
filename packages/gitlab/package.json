@@ -1,5 +1,5 @@
 {
-  "name": "@github-work-items/gitlab",
+  "name": "@gitlab-work-items/gitlab",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@github-work-items/domain": "workspace:0.1.0",
+    "@gitlab-work-items/domain": "workspace:0.1.0",
     "effect": "4.0.0-beta.100"
   }
 }

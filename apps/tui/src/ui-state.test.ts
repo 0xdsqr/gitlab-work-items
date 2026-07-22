@@ -9,7 +9,7 @@ import {
   workItemIdFromDragRenderable,
   workItemIdFromDragSource,
 } from "./ui-state.ts"
-import { mockWorkspace } from "@github-work-items/domain"
+import { mockWorkspace } from "@gitlab-work-items/domain"
 
 describe("work item status filters", () => {
   it("defaults can be applied without mutating the workspace", () => {

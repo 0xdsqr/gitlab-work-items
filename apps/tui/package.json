@@ -1,5 +1,5 @@
 {
-  "name": "@github-work-items/tui",
+  "name": "@gitlab-work-items/tui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@github-work-items/domain": "workspace:0.1.0",
-    "@github-work-items/gitlab": "workspace:0.1.0",
+    "@gitlab-work-items/domain": "workspace:0.1.0",
+    "@gitlab-work-items/gitlab": "workspace:0.1.0",
     "@opentui/core": "0.4.5",
     "@opentui/solid": "0.4.5",
     "effect": "4.0.0-beta.100",

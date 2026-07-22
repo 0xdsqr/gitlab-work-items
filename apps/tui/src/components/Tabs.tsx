@@ -1,4 +1,4 @@
-import type { WorkItemScope } from "@github-work-items/domain"
+import type { WorkItemScope } from "@gitlab-work-items/domain"
 import { TextAttributes } from "@opentui/core"
 import { createSignal, For } from "solid-js"
 import { colors } from "../theme.ts"

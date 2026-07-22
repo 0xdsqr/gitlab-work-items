@@ -1,7 +1,6 @@
-# github-work-items
+# gitlab-work-items
 
 A keyboard-first terminal UI for viewing and managing GitLab work items across your own queue and an organization.
-The name is intentionally provisional while the product scope settles.
 
 The current vertical slice includes:
 
@@ -19,29 +18,29 @@ The current vertical slice includes:
 With Nix installed and flakes enabled, run the latest `master` directly from GitHub:
 
 ```sh
-nix run github:0xdsqr/github-work-items
+nix run github:0xdsqr/gitlab-work-items
 ```
 
 To explore the interface with deterministic sample data and no GitLab credentials:
 
 ```sh
-nix run github:0xdsqr/github-work-items#mock
+nix run github:0xdsqr/gitlab-work-items#mock
 ```
 
 Sample mode never contacts GitLab and will not mirror a real board. Live mode fetches fresh data on every launch and
 scope change; `r` is only a manual resync.
 
-Install the command into your current Nix profile when you want `github-work-items` available on `PATH`:
+Install the command into your current Nix profile when you want `gitlab-work-items` available on `PATH`:
 
 ```sh
-nix profile install github:0xdsqr/github-work-items
-github-work-items
+nix profile install github:0xdsqr/gitlab-work-items
+gitlab-work-items
 ```
 
 For a reproducible release rather than the moving `master` branch, pin a semantic version tag:
 
 ```sh
-nix run github:0xdsqr/github-work-items/v0.1.0
+nix run github:0xdsqr/gitlab-work-items/v0.1.0
 ```
 
 The flake currently publishes tested packages for Apple Silicon macOS and x86-64 Linux. A Homebrew tap can be added
@@ -71,18 +70,18 @@ For live data, authenticate once with `glab auth login` or export `GITLAB_TOKEN`
 updates and creation (`read_api` is sufficient only for viewing). A separate
 username is not required because the app calls GitLab's current-user endpoint. For a self-managed instance, set
 `GITLAB_HOST`; direct token authentication requires HTTPS except for loopback development hosts. For the organization
-scope, set `GWI_GROUP` to the group's full path.
+scope, set `GLWI_GROUP` to the group's full path.
 
 For local direnv credentials, create an ignored `.envrc.local`. The tracked `.envrc` loads it automatically:
 
 ```sh
 export GITLAB_TOKEN="glpat-..."
-export GWI_GROUP="acme/platform"
+export GLWI_GROUP="acme/platform"
 # export GITLAB_HOST="https://gitlab.example.com"
 ```
 
 ```sh
-GWI_GROUP=acme bun run dev
+GLWI_GROUP=acme bun run dev
 ```
 
 ## Commands
@@ -100,7 +99,7 @@ Nix is the reproducible CI and packaging interface. Bun is the faster inner loop
 | Type-check         | `nix run .#typecheck`                  | `bun run typecheck`                                                         |
 | Test               | `nix run .#test`                       | `bun run test`                                                              |
 | Run every check    | `nix run .#check` or `nix flake check` | `bun run format:check && bun run lint && bun run typecheck && bun run test` |
-| Build the package  | `nix build .#github-work-items`        | `bun run build`                                                             |
+| Build the package  | `nix build .#gitlab-work-items`        | `bun run build`                                                             |
 
 The tracked `.oxfmtrc.json` and `.oxlintrc.json` files are authoritative for both workflows. Bun passes them explicitly
 to Oxfmt and Oxlint; treefmt and the Nix checks use those same files with Nix-pinned matching tool versions.

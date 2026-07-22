@@ -48,7 +48,7 @@
 
           packages = {
             default = package;
-            github-work-items = package;
+            gitlab-work-items = package;
             node-modules = nodeModules;
           };
 

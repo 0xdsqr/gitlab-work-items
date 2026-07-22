@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(nix eval --raw .#github-work-items.version)"
+          version="$(nix eval --raw .#gitlab-work-items.version)"
           if [[ "$GITHUB_REF_NAME" != "v${version}" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match package version v${version}" >&2
             exit 1
@@ -41,7 +41,7 @@ jobs:
         run: nix flake check --print-build-logs
 
       - name: Build release package
-        run: nix build --no-link --print-build-logs .#github-work-items
+        run: nix build --no-link --print-build-logs .#gitlab-work-items
 
   publish:
     name: Publish GitHub release
@@ -57,4 +57,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
-          --title "github-work-items $GITHUB_REF_NAME" --verify-tag
+          --title "gitlab-work-items $GITHUB_REF_NAME" --verify-tag

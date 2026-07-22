@@ -6,7 +6,7 @@ import {
   type WorkflowColumnId,
   type WorkItem,
   type WorkItemScope,
-} from "@github-work-items/domain"
+} from "@gitlab-work-items/domain"
 import {
   createWorkItem,
   gitLabConfigFromEnv,
@@ -14,7 +14,7 @@ import {
   moveWorkItem,
   openWorkItem,
   setWorkItemState,
-} from "@github-work-items/gitlab"
+} from "@gitlab-work-items/gitlab"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Effect } from "effect"
@@ -593,7 +593,7 @@ export const App = () => {
                 Set GITLAB_TOKEN or run `glab auth login`, then press r.
               </text>
               <text fg={colors.muted} wrapMode="none" truncate>
-                Organization scope also needs GWI_GROUP.
+                Organization scope also needs GLWI_GROUP.
               </text>
             </box>
           </Match>

@@ -8,7 +8,7 @@ import {
   type WorkItemLabel,
   type WorkItemScope,
   type Workspace,
-} from "@github-work-items/domain"
+} from "@gitlab-work-items/domain"
 import { Context, Effect, Layer, Schema } from "effect"
 import { gitLabApiUrl, gitLabConfigFromEnv, gitLabHostname, issuePathFor, trustedGitLabWebUrl } from "./config.ts"
 import { GitLabRequestError } from "./errors.ts"
@@ -109,7 +109,7 @@ export class GitLabClient extends Context.Service<
     ) => Effect.Effect<WorkItem, GitLabRequestError | Schema.SchemaError>
     readonly openWorkItem: (item: WorkItem) => Effect.Effect<void, GitLabRequestError>
   }
->()("github-work-items/GitLabClient") {
+>()("gitlab-work-items/GitLabClient") {
   static readonly layer = Layer.succeed(
     GitLabClient,
     GitLabClient.of({

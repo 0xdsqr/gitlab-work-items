@@ -1,4 +1,4 @@
-import { relativeAge, type WorkItem } from "@github-work-items/domain"
+import { relativeAge, type WorkItem } from "@gitlab-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { cellWidth, colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"

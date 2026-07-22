@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import { mockWorkspace, type WorkflowColumnId } from "@github-work-items/domain"
+import { mockWorkspace, type WorkflowColumnId } from "@gitlab-work-items/domain"
 import { testRender } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { App } from "../src/App.tsx"
@@ -9,7 +9,7 @@ import { WorkItems } from "../src/components/WorkItems.tsx"
 import { colors } from "../src/theme.ts"
 import { filterWorkItems, workItemDragSourceId } from "../src/ui-state.ts"
 
-process.env.GWI_MOCK = "1"
+process.env.GLWI_MOCK = "1"
 
 let cleanup: (() => void) | null = null
 

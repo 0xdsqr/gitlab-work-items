@@ -1,4 +1,4 @@
-import type { WorkItemLabel } from "@github-work-items/domain"
+import type { WorkItemLabel } from "@gitlab-work-items/domain"
 import { createMemo, For, Show } from "solid-js"
 import { cellWidth, colors, darkerLabelColor, ellipsis, labelColor, labelTextColor } from "../theme.ts"
 import { StyledSpan } from "./StyledSpan.tsx"

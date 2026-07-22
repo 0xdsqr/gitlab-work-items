@@ -15,17 +15,17 @@ let
     name: check: description:
     let
       command = pkgs.writeShellApplication {
-        name = "github-work-items-${name}";
+        name = "gitlab-work-items-${name}";
         runtimeInputs = [ pkgs.nix ];
         text = ''
           exec nix build --no-link --print-build-logs ".#checks.${system}.${check}" "$@"
         '';
       };
     in
-    app "${command}/bin/github-work-items-${name}" description;
+    app "${command}/bin/gitlab-work-items-${name}" description;
 
   allChecks = pkgs.writeShellApplication {
-    name = "github-work-items-check";
+    name = "gitlab-work-items-check";
     runtimeInputs = [ pkgs.nix ];
     text = ''
       exec nix flake check --print-build-logs "$@"
@@ -33,7 +33,7 @@ let
   };
 
   audit = pkgs.writeShellApplication {
-    name = "github-work-items-audit";
+    name = "gitlab-work-items-audit";
     runtimeInputs = [ bun ];
     text = ''
       exec bun audit --ignore=GHSA-4x5r-pxfx-6jf8 "$@"
@@ -41,18 +41,18 @@ let
   };
 
   mock = pkgs.writeShellApplication {
-    name = "github-work-items-mock";
+    name = "gitlab-work-items-mock";
     text = ''
-      export GWI_MOCK=1
-      exec ${package}/bin/github-work-items "$@"
+      export GLWI_MOCK=1
+      exec ${package}/bin/gitlab-work-items "$@"
     '';
   };
 in
 {
-  default = app "${package}/bin/github-work-items" "Browse GitLab work items from the terminal";
-  mock = app "${mock}/bin/github-work-items-mock" "Run the TUI with deterministic sample data";
-  audit = app "${audit}/bin/github-work-items-audit" "Audit locked Bun dependencies for known vulnerabilities";
-  check = app "${allChecks}/bin/github-work-items-check" "Run every repository check";
+  default = app "${package}/bin/gitlab-work-items" "Browse GitLab work items from the terminal";
+  mock = app "${mock}/bin/gitlab-work-items-mock" "Run the TUI with deterministic sample data";
+  audit = app "${audit}/bin/gitlab-work-items-audit" "Audit locked Bun dependencies for known vulnerabilities";
+  check = app "${allChecks}/bin/gitlab-work-items-check" "Run every repository check";
   format-check = checkApp "format-check" "formatting" "Check formatting without changing files";
   lint = checkApp "lint" "lint" "Lint the TypeScript workspace";
   test = checkApp "test" "test" "Run the test suite";

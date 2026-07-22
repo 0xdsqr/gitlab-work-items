@@ -10,7 +10,7 @@ let
   workspaceCheck =
     name: command:
     pkgs.stdenvNoCC.mkDerivation {
-      pname = "github-work-items-${name}";
+      pname = "gitlab-work-items-${name}";
       inherit (package) version;
       src = source;
       nativeBuildInputs = [
@@ -38,7 +38,7 @@ in
 {
   inherit package;
   actions =
-    pkgs.runCommand "github-work-items-actions" { nativeBuildInputs = [ pkgs.actionlint ]; }
+    pkgs.runCommand "gitlab-work-items-actions" { nativeBuildInputs = [ pkgs.actionlint ]; }
       ''
         actionlint ${source}/.github/workflows/*.yml
         touch "$out"

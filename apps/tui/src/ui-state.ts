@@ -1,4 +1,4 @@
-import { workflowColumns, type WorkItem } from "@github-work-items/domain"
+import { workflowColumns, type WorkItem } from "@gitlab-work-items/domain"
 
 const dragSourcePrefix = "work-item:"
 

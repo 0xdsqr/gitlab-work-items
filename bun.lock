@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "github-work-items",
+      "name": "gitlab-work-items",
       "devDependencies": {
         "@types/bun": "1.3.14",
         "oxfmt": "0.59.0",
@@ -13,11 +13,11 @@
       },
     },
     "apps/tui": {
-      "name": "@github-work-items/tui",
+      "name": "@gitlab-work-items/tui",
       "version": "0.1.0",
       "dependencies": {
-        "@github-work-items/domain": "workspace:0.1.0",
-        "@github-work-items/gitlab": "workspace:0.1.0",
+        "@gitlab-work-items/domain": "workspace:0.1.0",
+        "@gitlab-work-items/gitlab": "workspace:0.1.0",
         "@opentui/core": "0.4.5",
         "@opentui/solid": "0.4.5",
         "effect": "4.0.0-beta.100",
@@ -25,17 +25,17 @@
       },
     },
     "packages/domain": {
-      "name": "@github-work-items/domain",
+      "name": "@gitlab-work-items/domain",
       "version": "0.1.0",
       "dependencies": {
         "effect": "4.0.0-beta.100",
       },
     },
     "packages/gitlab": {
-      "name": "@github-work-items/gitlab",
+      "name": "@gitlab-work-items/gitlab",
       "version": "0.1.0",
       "dependencies": {
-        "@github-work-items/domain": "workspace:0.1.0",
+        "@gitlab-work-items/domain": "workspace:0.1.0",
         "effect": "4.0.0-beta.100",
       },
     },
@@ -105,11 +105,11 @@
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA=="],
 
-    "@github-work-items/domain": ["@github-work-items/domain@workspace:packages/domain"],
+    "@gitlab-work-items/domain": ["@gitlab-work-items/domain@workspace:packages/domain"],
 
-    "@github-work-items/gitlab": ["@github-work-items/gitlab@workspace:packages/gitlab"],
+    "@gitlab-work-items/gitlab": ["@gitlab-work-items/gitlab@workspace:packages/gitlab"],
 
-    "@github-work-items/tui": ["@github-work-items/tui@workspace:apps/tui"],
+    "@gitlab-work-items/tui": ["@gitlab-work-items/tui@workspace:apps/tui"],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 

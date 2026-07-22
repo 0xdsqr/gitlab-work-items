@@ -12,6 +12,13 @@ describe("GitLab configuration", () => {
     )
   })
 
+  it("loads GitLab Work Items group and mock settings", () => {
+    expect(gitLabConfigFromEnv({ GLWI_GROUP: "acme/platform", GLWI_MOCK: "true" })).toMatchObject({
+      group: "acme/platform",
+      mock: true,
+    })
+  })
+
   it("builds an encoded group endpoint", () => {
     expect(issuePathFor("organization", "acme/platform")).toContain("groups/acme%2Fplatform/issues")
   })

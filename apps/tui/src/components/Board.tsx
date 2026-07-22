@@ -4,7 +4,7 @@ import {
   type WorkItem,
   workflowColumns,
   workItemsByColumn,
-} from "@github-work-items/domain"
+} from "@gitlab-work-items/domain"
 import { TextAttributes, type MouseEvent } from "@opentui/core"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { cellWidth, colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"

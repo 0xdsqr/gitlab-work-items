@@ -12,7 +12,7 @@ let
   runtimePrograms = lib.optional stdenvNoCC.hostPlatform.isLinux xdg-utils;
 in
 stdenvNoCC.mkDerivation {
-  pname = "github-work-items";
+  pname = "gitlab-work-items";
   inherit version;
   src = source;
 
@@ -34,16 +34,16 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/bin" "$out/lib/github-work-items/apps/tui"
-    cp package.json "$out/lib/github-work-items/package.json"
-    cp -R packages "$out/lib/github-work-items/packages"
-    cp -R apps/tui/dist "$out/lib/github-work-items/apps/tui/dist"
-    cp -R apps/tui/node_modules "$out/lib/github-work-items/apps/tui/node_modules"
-    cp -R node_modules "$out/lib/github-work-items/node_modules"
-    makeWrapper ${bun}/bin/bun "$out/bin/github-work-items" \
+    mkdir -p "$out/bin" "$out/lib/gitlab-work-items/apps/tui"
+    cp package.json "$out/lib/gitlab-work-items/package.json"
+    cp -R packages "$out/lib/gitlab-work-items/packages"
+    cp -R apps/tui/dist "$out/lib/gitlab-work-items/apps/tui/dist"
+    cp -R apps/tui/node_modules "$out/lib/gitlab-work-items/apps/tui/node_modules"
+    cp -R node_modules "$out/lib/gitlab-work-items/node_modules"
+    makeWrapper ${bun}/bin/bun "$out/bin/gitlab-work-items" \
       --add-flags "--preload" \
-      --add-flags "$out/lib/github-work-items/apps/tui/node_modules/@opentui/solid/scripts/preload.js" \
-      --add-flags "$out/lib/github-work-items/apps/tui/dist/index.js" \
+      --add-flags "$out/lib/gitlab-work-items/apps/tui/node_modules/@opentui/solid/scripts/preload.js" \
+      --add-flags "$out/lib/gitlab-work-items/apps/tui/dist/index.js" \
       ${lib.optionalString (
         runtimePrograms != [ ]
       ) "--prefix PATH : ${lib.makeBinPath runtimePrograms}"}
@@ -52,8 +52,8 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "Keyboard-first terminal UI for GitLab work items";
-    homepage = "https://github.com/0xdsqr/github-work-items";
-    mainProgram = "github-work-items";
+    homepage = "https://github.com/0xdsqr/gitlab-work-items";
+    mainProgram = "gitlab-work-items";
     platforms = [
       "aarch64-darwin"
       "x86_64-linux"
