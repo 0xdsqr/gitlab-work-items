@@ -6,9 +6,14 @@ import { StyledSpan } from "./StyledSpan.tsx"
 
 export type Surface = "board" | "work-items"
 
-const surfaces: readonly { readonly id: Surface; readonly label: string; readonly key: string }[] = [
-  { id: "board", label: "▦ Board", key: "1" },
-  { id: "work-items", label: "≡ Work Items", key: "2" },
+const surfaces: readonly {
+  readonly id: Surface
+  readonly label: string
+  readonly compactLabel: string
+  readonly key: string
+}[] = [
+  { id: "board", label: "▦ Board", compactLabel: "Board", key: "1" },
+  { id: "work-items", label: "≡ Work Items", compactLabel: "Items", key: "2" },
 ]
 
 export const scopes: readonly { readonly id: WorkItemScope; readonly label: string }[] = [
@@ -19,6 +24,7 @@ export const scopes: readonly { readonly id: WorkItemScope; readonly label: stri
 
 type SurfaceTabsProps = {
   active: Surface
+  compact?: boolean
   onSelect: (surface: Surface) => void
 }
 
@@ -42,7 +48,7 @@ export const SurfaceTabs = (props: SurfaceTabsProps) => {
                 attributes={selected() ? TextAttributes.BOLD : 0}
               >
                 <StyledSpan fg={selected() ? colors.active : colors.subtle}>{selected() ? "▌" : " "}</StyledSpan>
-                {` ${surface.key} ${surface.label} `}
+                {` ${surface.key} ${props.compact ? surface.compactLabel : surface.label} `}
               </text>
               {index() < surfaces.length - 1 ? <text fg={colors.border}> </text> : null}
             </box>
@@ -56,6 +62,7 @@ export const SurfaceTabs = (props: SurfaceTabsProps) => {
 type ScopeTabsProps = {
   active: WorkItemScope
   group: string | null
+  compact?: boolean
   onSelect: (scope: WorkItemScope) => void
 }
 
@@ -65,7 +72,13 @@ export const ScopeTabs = (props: ScopeTabsProps) => (
     <For each={scopes}>
       {(scope) => {
         const selected = () => scope.id === props.active
-        const suffix = () => (scope.id === "organization" && props.group ? ` · ${props.group}` : "")
+        const label = () => {
+          if (!props.compact) return scope.label
+          if (scope.id === "assigned") return "Mine"
+          if (scope.id === "created") return "Created"
+          return "Group"
+        }
+        const suffix = () => (!props.compact && scope.id === "organization" && props.group ? ` · ${props.group}` : "")
         return (
           <text
             fg={selected() ? colors.text : colors.muted}
@@ -73,7 +86,7 @@ export const ScopeTabs = (props: ScopeTabsProps) => (
             attributes={selected() ? TextAttributes.BOLD : 0}
             onMouseDown={() => props.onSelect(scope.id)}
           >
-            {` ${selected() ? "● " : ""}${scope.label}${suffix()} `}
+            {` ${selected() ? "● " : ""}${label()}${suffix()} `}
           </text>
         )
       }}

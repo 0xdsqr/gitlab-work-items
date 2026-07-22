@@ -2,6 +2,7 @@ import type { WorkItem, WorkItemLabel } from "@github-work-items/domain"
 
 export const colors = {
   background: "#18171d",
+  scrim: "#111017dd",
   panel: "#28272d",
   panelRaised: "#3a383f",
   panelSoft: "#28272d",
@@ -57,7 +58,48 @@ export const darkerLabelColor = (label: WorkItemLabel) => {
   return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`
 }
 
+const graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" })
+
+const isFullWidthCodePoint = (codePoint: number) =>
+  codePoint >= 0x1100 &&
+  (codePoint <= 0x115f ||
+    codePoint === 0x2329 ||
+    codePoint === 0x232a ||
+    (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+    (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+    (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+    (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+    (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+    (codePoint >= 0xff00 && codePoint <= 0xff60) ||
+    (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+    (codePoint >= 0x1b000 && codePoint <= 0x1b2ff) ||
+    (codePoint >= 0x20000 && codePoint <= 0x3fffd))
+
+const fallbackCellWidth = (value: string) => {
+  let width = 0
+  for (const { segment } of graphemeSegmenter.segment(value)) {
+    const codePoint = segment.codePointAt(0) ?? 0
+    const control = codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f)
+    if (/^\p{Mark}+$/u.test(segment) || control) continue
+    width += /\p{Extended_Pictographic}/u.test(segment) || isFullWidthCodePoint(codePoint) ? 2 : 1
+  }
+  return width
+}
+
+const runtimeStringWidth = (globalThis as typeof globalThis & { Bun?: { stringWidth?: (value: string) => number } }).Bun
+  ?.stringWidth
+
+export const cellWidth = (value: string) => runtimeStringWidth?.(value) ?? fallbackCellWidth(value)
+
 export const ellipsis = (value: string, width: number) => {
-  if (value.length <= width) return value
-  return width <= 1 ? "…" : `${value.slice(0, width - 1)}…`
+  if (width <= 0) return ""
+  if (cellWidth(value) <= width) return value
+  if (width === 1) return "…"
+
+  let fitted = ""
+  for (const { segment } of graphemeSegmenter.segment(value)) {
+    if (cellWidth(`${fitted}${segment}…`) > width) break
+    fitted += segment
+  }
+  return `${fitted}…`
 }

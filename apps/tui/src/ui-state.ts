@@ -1,4 +1,4 @@
-import type { WorkItem } from "@github-work-items/domain"
+import { workflowColumns, type WorkItem } from "@github-work-items/domain"
 
 const dragSourcePrefix = "work-item:"
 
@@ -36,6 +36,20 @@ export const visibleWindowStart = (itemCount: number, capacity: number, selected
   const lastStart = Math.max(0, itemCount - safeCapacity)
   return Math.max(0, Math.min(lastStart, selectedIndex - safeCapacity + 1))
 }
+
+const minimumWorkflowColumnWidth = 25
+
+export const visibleWorkflowColumns = (width: number, focusedIndex: number) => {
+  const count = Math.max(
+    1,
+    Math.min(workflowColumns.length, Math.floor((Math.max(1, width) + 1) / (minimumWorkflowColumnWidth + 1))),
+  )
+  const focused = Math.max(0, Math.min(workflowColumns.length - 1, focusedIndex))
+  const start = Math.max(0, Math.min(workflowColumns.length - count, focused - Math.floor(count / 2)))
+  return workflowColumns.slice(start, start + count)
+}
+
+export const terminalSizeSupported = (width: number, height: number) => width >= 44 && height >= 16
 
 export const workItemDragSourceId = (itemId: string) => `${dragSourcePrefix}${itemId}`
 

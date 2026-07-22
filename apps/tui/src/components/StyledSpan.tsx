@@ -1,12 +1,11 @@
 import type { JSX } from "@opentui/solid"
 
 type StyledSpanProps = {
-  fg?: string
-  bg?: string
-  attributes?: number
+  fg?: string | undefined
+  bg?: string | undefined
   children?: JSX.Element
 }
 
 export const StyledSpan = (props: StyledSpanProps) => (
-  <span {...{ fg: props.fg, bg: props.bg, attributes: props.attributes }}>{props.children}</span>
+  <span style={{ fg: props.fg, bg: props.bg }}>{props.children}</span>
 )

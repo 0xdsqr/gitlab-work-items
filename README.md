@@ -28,6 +28,9 @@ To explore the interface with deterministic sample data and no GitLab credential
 nix run github:0xdsqr/github-work-items#mock
 ```
 
+Sample mode never contacts GitLab and will not mirror a real board. Live mode fetches fresh data on every launch and
+scope change; `r` is only a manual resync.
+
 Install the command into your current Nix profile when you want `github-work-items` available on `PATH`:
 
 ```sh
@@ -119,7 +122,7 @@ Controls:
 
 - `1` / `2` opens Board / Work Items; `tab` changes scope.
 - `h` / `l` changes board column; `j` / `k` changes card.
-- `[` / `]` moves the selected card; `enter` opens its summary. For mouse drag/drop, hold the left button on a card's
+- `[` / `]` moves the selected card; `enter` opens its details from either surface. For mouse drag/drop, hold the left button on a card's
   `⠿` grip, move it over a visible destination column, and release when the column says `Release to move here`; no
   preselection is required.
 - Work Items defaults to open items; press `f` to cycle Open, Closed, and All, or click a status filter.
@@ -133,9 +136,10 @@ The cross-project board uses GitLab-compatible scoped labels: `workflow::ready`,
 issue when crossing the Closed column. GitLab creates a missing project label when the first card is moved into that
 stage.
 
-The board shows three columns in a standard 80-column terminal so mouse destinations stay visible. Use `h` / `l` to
-shift the visible three-column window toward stages that are currently off-screen. Below 66 columns, keyboard movement
-remains available while the board focuses one column at a time.
+The board shows three columns in a standard 80-column terminal so mouse destinations stay visible. It progressively
+scales from one to five visible stages as the terminal grows, keeping the focused stage in view and showing how many
+stages are off-screen. The supported minimum is 44 columns by 16 rows; smaller terminals show a resize prompt instead
+of clipping controls.
 
 ## Workspace
 

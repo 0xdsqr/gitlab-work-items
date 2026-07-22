@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   filterWorkItems,
   nextWorkItemStateFilter,
+  terminalSizeSupported,
   visibleWindowStart,
+  visibleWorkflowColumns,
   workItemDragSourceId,
   workItemIdFromDragRenderable,
   workItemIdFromDragSource,
@@ -50,6 +52,22 @@ describe("visibleWindowStart", () => {
   it("clamps short and empty lists", () => {
     expect(visibleWindowStart(2, 4, 1)).toBe(0)
     expect(visibleWindowStart(0, 0, 0)).toBe(0)
+  })
+})
+
+describe("responsive terminal layout", () => {
+  it("adds board columns progressively without abrupt one-to-three jumps", () => {
+    expect(visibleWorkflowColumns(44, 2).map((column) => column.id)).toEqual(["doing"])
+    expect(visibleWorkflowColumns(60, 2).map((column) => column.id)).toEqual(["ready", "doing"])
+    expect(visibleWorkflowColumns(80, 2).map((column) => column.id)).toEqual(["ready", "doing", "review"])
+    expect(visibleWorkflowColumns(110, 2).map((column) => column.id)).toEqual(["backlog", "ready", "doing", "review"])
+    expect(visibleWorkflowColumns(130, 2)).toHaveLength(5)
+  })
+
+  it("recognizes the smallest supported workspace", () => {
+    expect(terminalSizeSupported(44, 16)).toBe(true)
+    expect(terminalSizeSupported(43, 16)).toBe(false)
+    expect(terminalSizeSupported(44, 15)).toBe(false)
   })
 })
 
