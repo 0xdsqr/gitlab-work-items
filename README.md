@@ -27,8 +27,9 @@ To explore the interface with deterministic sample data and no GitLab credential
 nix run github:0xdsqr/gitlab-work-items#mock
 ```
 
-Sample mode never contacts GitLab and will not mirror a real board. Live mode fetches fresh data on every launch and
-scope change; `r` is only a manual resync.
+Sample mode never contacts GitLab and will not mirror a real board. Live mode fetches fresh, paginated data on every
+launch and scope change; `r` is only a manual resync, so restarting or changing scopes does not require an additional
+refresh.
 
 Install the command into your current Nix profile when you want `gitlab-work-items` available on `PATH`:
 
@@ -37,14 +38,17 @@ nix profile install github:0xdsqr/gitlab-work-items
 gitlab-work-items
 ```
 
-For a reproducible release rather than the moving `master` branch, pin a semantic version tag:
+After a release is published, use its semantic version tag for a reproducible run rather than the moving `master`
+branch:
 
 ```sh
-nix run github:0xdsqr/gitlab-work-items/v0.1.0
+TAG=vX.Y.Z
+nix run "github:0xdsqr/gitlab-work-items/$TAG"
 ```
 
-The flake currently publishes tested packages for Apple Silicon macOS and x86-64 Linux. A Homebrew tap can be added
-once tagged releases and stable versioning are in place; Nix is the supported installation path for now.
+The flake exposes packages for Apple Silicon macOS and x86-64 Linux; CI continuously builds and smoke-tests the Linux
+package. A Homebrew tap can be added once tagged releases and stable versioning are in place; Nix is the supported
+installation path for now.
 
 ## Local development
 
@@ -69,8 +73,9 @@ Use `nix run .#mock` or `bun run mock` to run local fixtures.
 For live data, authenticate once with `glab auth login` or export `GITLAB_TOKEN`. The token needs `api` scope for board
 updates and creation (`read_api` is sufficient only for viewing). A separate
 username is not required because the app calls GitLab's current-user endpoint. For a self-managed instance, set
-`GITLAB_HOST`; direct token authentication requires HTTPS except for loopback development hosts. For the organization
-scope, set `GLWI_GROUP` to the group's full path.
+`GITLAB_HOST`; direct token authentication requires HTTPS except for loopback development hosts. The Organization
+scope is unavailable until `GLWI_GROUP` is set to the group's full path; it never falls back to an instance-wide issue
+query.
 
 For local direnv credentials, create an ignored `.envrc.local`. The tracked `.envrc` loads it automatically:
 
@@ -88,34 +93,40 @@ GLWI_GROUP=acme bun run dev
 
 Nix is the reproducible CI and packaging interface. Bun is the faster inner loop after entering the development shell.
 
-| Purpose            | Nix                                    | Bun                                                                         |
-| ------------------ | -------------------------------------- | --------------------------------------------------------------------------- |
-| Run live data      | `nix run .`                            | `bun run start`                                                             |
-| Run sample data    | `nix run .#mock`                       | `bun run mock`                                                              |
-| Format files       | `nix fmt`                              | `bun run format`                                                            |
-| Check formatting   | `nix run .#format-check`               | `bun run format:check`                                                      |
-| Audit dependencies | `nix run .#audit`                      | `bun run audit`                                                             |
-| Lint               | `nix run .#lint`                       | `bun run lint`                                                              |
-| Type-check         | `nix run .#typecheck`                  | `bun run typecheck`                                                         |
-| Test               | `nix run .#test`                       | `bun run test`                                                              |
-| Run every check    | `nix run .#check` or `nix flake check` | `bun run format:check && bun run lint && bun run typecheck && bun run test` |
-| Build the package  | `nix build .#gitlab-work-items`        | `bun run build`                                                             |
+| Purpose            | Nix                                    | Bun                    |
+| ------------------ | -------------------------------------- | ---------------------- |
+| Run live data      | `nix run .`                            | `bun run start`        |
+| Run sample data    | `nix run .#mock`                       | `bun run mock`         |
+| Format files       | `nix fmt`                              | `bun run format`       |
+| Check formatting   | `nix run .#format-check`               | `bun run format:check` |
+| Audit dependencies | `nix run .#audit`                      | `bun run audit`        |
+| Lint               | `nix run .#lint`                       | `bun run lint`         |
+| Smoke-test package | `nix run .#smoke`                      | —                      |
+| Type-check         | `nix run .#typecheck`                  | `bun run typecheck`    |
+| Test               | `nix run .#test`                       | `bun run test`         |
+| Run every check    | `nix run .#check` or `nix flake check` | —                      |
+| Build TUI bundle   | —                                      | `bun run build`        |
+| Build Nix package  | `nix build .#gitlab-work-items`        | —                      |
 
 The tracked `.oxfmtrc.json` and `.oxlintrc.json` files are authoritative for both workflows. Bun passes them explicitly
 to Oxfmt and Oxlint; treefmt and the Nix checks use those same files with Nix-pinned matching tool versions.
 The online dependency audit is intentionally separate from the reproducible flake checks; CI runs both, and Dependabot
 tracks the Bun lockfile, Nix flake inputs, and pinned GitHub Actions.
 
-The audit narrowly ignores `GHSA-4x5r-pxfx-6jf8`, a low-severity build-time advisory in the Babel 7 release pinned by
-`@opentui/solid`. Babel 8 is incompatible with OpenTUI's current Solid transform; remove this exception when OpenTUI
-publishes a compatible patched dependency.
+The Nix package contains the compiled application bundle plus the exact OpenTUI core and platform-native renderer
+needed at runtime. It does not ship workspace sources, test tools, or the development `node_modules` tree.
+
+The audit fails on every known advisory except the explicitly ignored `GHSA-4x5r-pxfx-6jf8`, a low-severity,
+build-time advisory. `@opentui/solid@0.4.5` exact-pins the affected `@babel/core@7.28.0` even though patched Babel 7
+releases exist. Remove this exception as soon as OpenTUI updates that exact dependency.
 
 ## Releases
 
 `package.json` is the single source of truth for the version consumed by the Nix package. Pushing the matching semantic
-version tag (for example, `v0.1.0`) runs the full Nix quality gate, builds the package, and publishes a GitHub release
-with generated notes. A mismatched tag is rejected before publication. GitHub's source archives plus the tagged flake
-are the release artifact; a separate registry is unnecessary for the supported Nix installation path.
+version tag runs the full Nix quality gate, builds and starts the packaged executable in deterministic sample mode,
+and publishes a GitHub release with generated notes. A mismatched tag is rejected before publication. GitHub's source
+archives plus the tagged flake are the release artifact; a separate registry is unnecessary for the supported Nix
+installation path.
 
 Controls:
 
@@ -156,4 +167,5 @@ draws on [Executor](https://github.com/UsefulSoftwareCo/executor) for Effect-ori
 
 GitLab's current work-item direction is GraphQL and widget-based. The bootstrap uses the stable Issues REST API for a
 small, reliable live slice while keeping a provider-neutral `WorkItem` model that already represents epics, objectives,
-and key results. The next API slice should add group `workItems` GraphQL pagination for complete organization coverage.
+and key results. REST list responses are followed across every advertised page; a future API slice can adopt group
+`workItems` GraphQL without sacrificing complete organization coverage.
