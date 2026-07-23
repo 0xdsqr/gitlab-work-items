@@ -38,12 +38,32 @@ stdenvNoCC.mkDerivation {
     export BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache"
     bun install --frozen-lockfile --ignore-scripts --no-progress --cpu ${installCpu} --os ${installOs}
 
-    # Bun's isolated linker can race while creating package-local bin links for
-    # cyclic peer dependencies (https://github.com/oven-sh/bun/issues/30209).
-    # Lifecycle scripts are disabled and workspace commands use the public bin
-    # directories, so internal virtual-store bins are unnecessary. Removing all
-    # of them makes the fixed-output dependency tree deterministic.
-    find node_modules/.bun -type d -path '*/node_modules/.bin' -prune -exec rm -rf {} +
+    # Bun's isolated linker can race while creating either side of this cyclic
+    # peer-dependency bin pair (https://github.com/oven-sh/bun/issues/30209).
+    # Normalize both links until the upstream fix is released.
+    normalized_browserslist_bin=0
+    for bin_dir in node_modules/.bun/update-browserslist-db@*/node_modules/.bin; do
+      if [ ! -d "$bin_dir" ]; then
+        continue
+      fi
+      ln -sfn ../browserslist/cli.js "$bin_dir/browserslist"
+      normalized_browserslist_bin=1
+    done
+    normalized_update_browserslist_db_bin=0
+    for bin_dir in node_modules/.bun/browserslist@*/node_modules/.bin; do
+      if [ ! -d "$bin_dir" ]; then
+        continue
+      fi
+      ln -sfn ../update-browserslist-db/cli.js "$bin_dir/update-browserslist-db"
+      normalized_update_browserslist_db_bin=1
+    done
+    if
+      [ "$normalized_browserslist_bin" -ne 1 ] ||
+      [ "$normalized_update_browserslist_db_bin" -ne 1 ]
+    then
+      echo "Could not normalize the browserslist bin cycle" >&2
+      exit 1
+    fi
     runHook postBuild
   '';
 
