@@ -20,7 +20,7 @@
         "@gitlab-work-items/gitlab": "workspace:0.1.0",
         "@opentui/core": "0.4.5",
         "@opentui/solid": "0.4.5",
-        "effect": "4.0.0-beta.100",
+        "effect": "4.0.0-beta.101",
         "solid-js": "1.9.12",
       },
     },
@@ -28,7 +28,7 @@
       "name": "@gitlab-work-items/domain",
       "version": "0.1.0",
       "dependencies": {
-        "effect": "4.0.0-beta.100",
+        "effect": "4.0.0-beta.101",
       },
     },
     "packages/gitlab": {
@@ -36,7 +36,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@gitlab-work-items/domain": "workspace:0.1.0",
-        "effect": "4.0.0-beta.100",
+        "effect": "4.0.0-beta.101",
       },
     },
   },
@@ -367,7 +367,7 @@
 
     "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
-    "effect": ["effect@4.0.0-beta.100", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "find-my-way-ts": "^0.1.6", "ini": "^7.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "multipasta": "^0.2.8", "toml": "^4.1.2", "uuid": "^14.0.1", "yaml": "^2.9.0" } }, "sha512-K4ed+BS3HyE+NoAZ8pJss2DpuK41mb856IO7ZlPfnwBXbq8oTtAAurrsVnwe2hzPamIuaZp/Pq4/xp9qORYv8Q=="],
+    "effect": ["effect@4.0.0-beta.101", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "find-my-way-ts": "^0.1.6", "ini": "^7.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "multipasta": "^0.2.8", "toml": "^4.1.2", "uuid": "^14.0.1", "yaml": "^2.9.0" } }, "sha512-HjowumlIo+orthn4jMlEJPuzIYPBV+uq/XiciHWhiedLsXQpWHdNJHO5d59BVDP5s1LPuvERcktwFqRXnJqnhA=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.394", "", {}, "sha512-Wmt2Gm0o8JWBuGgmc4XZ0u9s1RaCRqhxP47phplmfg04+qypTUurpeJGP45A7Fhv7jdrrVH44PLlR9qXo37cVQ=="],
 
