@@ -6,6 +6,7 @@ import {
   type WorkflowColumnId,
   type WorkItem,
   type WorkItemScope,
+  type Workspace,
 } from "@gitlab-work-items/domain"
 import {
   createWorkItem,
@@ -13,11 +14,12 @@ import {
   loadWorkspace,
   moveWorkItem,
   openWorkItem,
+  runGitLabEffect,
   setWorkItemState,
+  type GitLabConfig,
 } from "@gitlab-work-items/gitlab"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { Effect } from "effect"
 import { batch, createEffect, createMemo, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 import { Board } from "./components/Board.tsx"
 import { CreateWorkItemModal } from "./components/CreateWorkItemModal.tsx"
@@ -33,10 +35,63 @@ import {
   type WorkItemStateFilter,
 } from "./ui-state.ts"
 
+const safeDisplayText = (value: string) =>
+  Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0
+    return codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f) ? " " : character
+  })
+    .join("")
+    .replaceAll(/\s+/g, " ")
+    .trim()
+
 const messageOf = (error: unknown) => {
   if (typeof error === "object" && error !== null && "detail" in error && typeof error.detail === "string")
-    return error.detail
-  return error instanceof Error ? error.message : String(error)
+    return safeDisplayText(error.detail)
+  return safeDisplayText(error instanceof Error ? error.message : String(error))
+}
+
+const remediationOf = (error: unknown, requestedScope: WorkItemScope, group: string | null) => {
+  if (typeof error === "object" && error !== null && "remediation" in error && typeof error.remediation === "string")
+    return safeDisplayText(error.remediation)
+  const detail = messageOf(error).toLowerCase()
+  if (requestedScope === "organization" && !group) return "Set GLWI_GROUP to a GitLab group, then press r."
+  if (/(?:^|\D)(?:401|403)(?:\D|$)|auth|token|credential/.test(detail))
+    return "Check GITLAB_TOKEN or `glab auth status`, then press r."
+  if (/network|connect|fetch|timed? out|timeout|dns|host/.test(detail))
+    return "Check GITLAB_HOST and your network, then press r."
+  return "Press r to retry. If it persists, check the GitLab CLI output."
+}
+
+export type AppGitLabRuntime = {
+  readonly config: GitLabConfig
+  readonly configurationInvalid?: boolean
+  readonly loadWorkspace: (scope: WorkItemScope, signal: AbortSignal) => Promise<Workspace>
+  readonly moveWorkItem: (item: WorkItem, target: WorkflowColumnId, signal: AbortSignal) => Promise<WorkItem>
+  readonly setWorkItemState: (item: WorkItem, state: WorkItem["state"], signal: AbortSignal) => Promise<WorkItem>
+  readonly createWorkItem: (project: string, title: string, signal: AbortSignal) => Promise<WorkItem>
+  readonly openWorkItem: (item: WorkItem, signal: AbortSignal) => Promise<void>
+}
+
+const runtimeWithConfig = (config: GitLabConfig, configurationInvalid = false): AppGitLabRuntime => ({
+  config,
+  configurationInvalid,
+  loadWorkspace: (scope, signal) => runGitLabEffect(loadWorkspace(scope), { signal }),
+  moveWorkItem: (item, target, signal) => runGitLabEffect(moveWorkItem(item, target), { signal }),
+  setWorkItemState: (item, state, signal) => runGitLabEffect(setWorkItemState(item, state), { signal }),
+  createWorkItem: (project, title, signal) => runGitLabEffect(createWorkItem(project, title), { signal }),
+  openWorkItem: (item, signal) => runGitLabEffect(openWorkItem(item), { signal }),
+})
+
+export const liveGitLabRuntime = (): AppGitLabRuntime => {
+  try {
+    return runtimeWithConfig(gitLabConfigFromEnv())
+  } catch {
+    return runtimeWithConfig(gitLabConfigFromEnv({ GITLAB_HOST: "https://gitlab.com" }), true)
+  }
+}
+
+type AppProps = {
+  readonly gitLab?: AppGitLabRuntime
 }
 
 type CreateForm = {
@@ -75,10 +130,11 @@ const TerminalTooSmall = (props: { width: number; height: number }) => (
   </box>
 )
 
-export const App = () => {
+export const App = (props: AppProps = {}) => {
   const renderer = useRenderer()
   const dimensions = useTerminalDimensions()
-  const config = gitLabConfigFromEnv()
+  const gitLab = props.gitLab ?? liveGitLabRuntime()
+  const config = gitLab.config
   const [surface, setSurface] = createSignal<Surface>("board")
   const [scopeIndex, setScopeIndex] = createSignal(0)
   const [workItemsIndex, setWorkItemsIndex] = createSignal(0)
@@ -90,13 +146,30 @@ export const App = () => {
   const [items, setItems] = createSignal<readonly WorkItem[]>([])
   const [username, setUsername] = createSignal("GitLab")
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading")
-  const [error, setError] = createSignal<string | null>(null)
+  const [error, setError] = createSignal<{ readonly detail: string; readonly remediation: string } | null>(null)
   const [refreshKey, setRefreshKey] = createSignal(0)
   const [pendingItemId, setPendingItemId] = createSignal<string | null>(null)
   const [toast, setToast] = createSignal("Loading your GitLab workspace…")
   const [createForm, setCreateForm] = createSignal<CreateForm | null>(null)
   const [summaryItemId, setSummaryItemId] = createSignal<string | null>(null)
   const [creating, setCreating] = createSignal(false)
+  const operationControllers = new Set<AbortController>()
+  let disposed = false
+
+  const runOperation = <A,>(operation: (signal: AbortSignal) => Promise<A>) => {
+    const controller = new AbortController()
+    operationControllers.add(controller)
+    const promise = Promise.resolve()
+      .then(() => operation(controller.signal))
+      .finally(() => operationControllers.delete(controller))
+    return { controller, promise }
+  }
+
+  onCleanup(() => {
+    disposed = true
+    for (const controller of operationControllers) controller.abort()
+    operationControllers.clear()
+  })
 
   const width = createMemo(() => dimensions().width)
   const height = createMemo(() => dimensions().height)
@@ -131,7 +204,7 @@ export const App = () => {
         ? "j/k select  / search  f status  enter details  n create"
         : "j/k select  / search  enter details"
     if (width() >= 72) return "h/l stages  j/k cards  [/] move  enter details  drag with ⠿"
-    return "h/l stages  j/k cards  enter details"
+    return "h/l stage  j/k card  [ ] move  enter"
   })
 
   const refresh = () => {
@@ -157,17 +230,18 @@ export const App = () => {
   createEffect(() => {
     const requestedScope = scope()
     refreshKey()
-    let cancelled = false
 
     batch(() => {
       setStatus("loading")
       setError(null)
+      setSummaryItemId(null)
       setToast("Syncing with GitLab…")
     })
 
-    void Effect.runPromise(loadWorkspace(requestedScope)).then(
+    const operation = runOperation((signal) => gitLab.loadWorkspace(requestedScope, signal))
+    void operation.promise.then(
       (workspace) => {
-        if (cancelled) return
+        if (disposed || operation.controller.signal.aborted) return
         const initialGroups = workItemsByColumn(workspace.items)
         const firstPopulatedColumn = workflowColumns.findIndex((column) => initialGroups[column.id].length > 0)
         batch(() => {
@@ -181,19 +255,22 @@ export const App = () => {
         })
       },
       (cause) => {
-        if (cancelled) return
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems([])
-          setError(messageOf(cause))
+          setError({
+            detail: gitLab.configurationInvalid ? "GitLab configuration is invalid." : messageOf(cause),
+            remediation: gitLab.configurationInvalid
+              ? "Fix GITLAB_HOST or GLWI_GROUP, then restart."
+              : remediationOf(cause, requestedScope, config.group),
+          })
           setStatus("error")
           setToast("GitLab sync failed")
         })
       },
     )
 
-    onCleanup(() => {
-      cancelled = true
-    })
+    onCleanup(() => operation.controller.abort())
   })
 
   const selectScope = (next: WorkItemScope) => {
@@ -259,8 +336,10 @@ export const App = () => {
       }
     })
 
-    void Effect.runPromise(moveWorkItem(item, target)).then(
+    const operation = runOperation((signal) => gitLab.moveWorkItem(item, target, signal))
+    void operation.promise.then(
       (updated) => {
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? updated : candidate)))
           setPendingItemId(null)
@@ -268,6 +347,7 @@ export const App = () => {
         })
       },
       (cause) => {
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? item : candidate)))
           setPendingItemId(null)
@@ -293,8 +373,10 @@ export const App = () => {
       setToast(`${nextState === "CLOSED" ? "Closing" : "Reopening"} ${item.reference}…`)
     })
 
-    void Effect.runPromise(setWorkItemState(item, nextState)).then(
+    const operation = runOperation((signal) => gitLab.setWorkItemState(item, nextState, signal))
+    void operation.promise.then(
       (updated) => {
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? updated : candidate)))
           setPendingItemId(null)
@@ -302,6 +384,7 @@ export const App = () => {
         })
       },
       (cause) => {
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? item : candidate)))
           setPendingItemId(null)
@@ -312,10 +395,19 @@ export const App = () => {
   }
 
   const openInGitLab = (item: WorkItem) => {
+    if (status() !== "ready") {
+      setToast("Wait for GitLab sync to finish")
+      return
+    }
     setToast(`Opening ${item.reference} in GitLab…`)
-    void Effect.runPromise(openWorkItem(item)).then(
-      () => setToast(`${item.reference} opened in GitLab`),
-      (cause) => setToast(`Open failed · ${messageOf(cause)}`),
+    const operation = runOperation((signal) => gitLab.openWorkItem(item, signal))
+    void operation.promise.then(
+      () => {
+        if (!disposed && !operation.controller.signal.aborted) setToast(`${item.reference} opened in GitLab`)
+      },
+      (cause) => {
+        if (!disposed && !operation.controller.signal.aborted) setToast(`Open failed · ${messageOf(cause)}`)
+      },
     )
   }
 
@@ -339,18 +431,30 @@ export const App = () => {
       setCreating(true)
       setToast(`Creating work item in ${project}…`)
     })
-    void Effect.runPromise(createWorkItem(project, title)).then(
+    const operation = runOperation((signal) => gitLab.createWorkItem(project, title, signal))
+    void operation.promise.then(
       (created) => {
+        if (disposed || operation.controller.signal.aborted) return
+        const createdScopeIndex = scopes.findIndex((candidate) => candidate.id === "created")
+        const alreadyShowingCreated = scope() === "created"
         batch(() => {
-          setItems((current) => [created, ...current])
+          if (alreadyShowingCreated) setItems((current) => [created, ...current])
+          else if (createdScopeIndex >= 0) setScopeIndex(createdScopeIndex)
+          setWorkItemFilter("open")
+          setWorkItemQuery("")
           setWorkItemsIndex(0)
           setCreating(false)
           setCreateForm(null)
           setSurface("work-items")
-          setToast(`${created.reference} created`)
+          setToast(
+            alreadyShowingCreated
+              ? `${created.reference} created`
+              : `${created.reference} created · loading Created by me…`,
+          )
         })
       },
       (cause) => {
+        if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setCreating(false)
           setToast(`Create failed · ${messageOf(cause)}`)
@@ -455,6 +559,10 @@ export const App = () => {
       if ((key.name === "enter" || key.name === "return") && currentSelected) {
         key.preventDefault()
         key.stopPropagation()
+        if (status() !== "ready") {
+          setToast("Wait for GitLab sync to finish")
+          return
+        }
         setSummaryItemId(currentSelected.id)
         return
       }
@@ -489,6 +597,10 @@ export const App = () => {
 
     const currentBoardItem = boardSelected()
     if ((key.name === "enter" || key.name === "return") && currentBoardItem) {
+      if (status() !== "ready") {
+        setToast("Wait for GitLab sync to finish")
+        return
+      }
       setSummaryItemId(currentBoardItem.id)
       return
     }
@@ -525,12 +637,16 @@ export const App = () => {
             </Show>
           </text>
           <text fg={colors.muted}>
-            <StyledSpan fg={config.mock ? colors.warning : colors.success}>●</StyledSpan>{" "}
-            {config.mock
-              ? width() < 60
-                ? "sample"
-                : "sample workspace"
-              : ellipsis(config.host.replace(/^https?:\/\//, ""), width() < 72 ? 18 : 36)}
+            <StyledSpan fg={gitLab.configurationInvalid ? colors.error : config.mock ? colors.warning : colors.success}>
+              ●
+            </StyledSpan>{" "}
+            {gitLab.configurationInvalid
+              ? "configuration error"
+              : config.mock
+                ? width() < 60
+                  ? "sample"
+                  : "sample workspace"
+                : ellipsis(config.hostDisplay, width() < 72 ? 18 : 36)}
           </text>
         </box>
         <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
@@ -586,14 +702,13 @@ export const App = () => {
                 GitLab could not load this workspace
               </text>
               <text fg={colors.text} height={2} wrapMode="word" truncate>
-                {error() ?? "The request failed."}
+                {error()?.detail ?? "The request failed."}
               </text>
-              <box height={1} />
-              <text fg={colors.muted} wrapMode="none" truncate>
-                Set GITLAB_TOKEN or run `glab auth login`, then press r.
-              </text>
-              <text fg={colors.muted} wrapMode="none" truncate>
-                Organization scope also needs GLWI_GROUP.
+              <Show when={width() >= 64}>
+                <box height={1} />
+              </Show>
+              <text fg={colors.muted} height={width() < 64 ? 2 : 1} wrapMode={width() < 64 ? "word" : "none"} truncate>
+                {error()?.remediation ?? "Press r to retry."}
               </text>
             </box>
           </Match>

@@ -1,6 +1,6 @@
 import { relativeAge, type WorkItem } from "@gitlab-work-items/domain"
 import { TextAttributes } from "@opentui/core"
-import { createMemo } from "solid-js"
+import { createMemo, Show } from "solid-js"
 import { colors, ellipsis, typeColor, workItemTypeIcon } from "../theme.ts"
 import { LabelChips } from "./LabelChips.tsx"
 import { StyledSpan } from "./StyledSpan.tsx"
@@ -16,10 +16,14 @@ type WorkItemSummaryModalProps = {
 }
 
 export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
+  const compact = createMemo(() => props.screenWidth < 64 || props.screenHeight < 21)
   const width = createMemo(() => Math.min(78, Math.max(28, props.screenWidth - 4)))
-  const height = createMemo(() => Math.min(17, Math.max(13, props.screenHeight - 4)))
+  const height = createMemo(() => Math.min(17, Math.max(12, props.screenHeight - 2)))
   const contentWidth = createMemo(() => Math.max(20, width() - 4))
-  const descriptionHeight = createMemo(() => Math.min(4, Math.max(1, height() - 12)))
+  const innerHeight = createMemo(() => Math.max(1, height() - 4))
+  const descriptionHeight = createMemo(() =>
+    compact() ? Math.min(3, Math.max(1, innerHeight() - 7)) : Math.min(4, Math.max(1, innerHeight() - 9)),
+  )
 
   return (
     <>
@@ -52,7 +56,7 @@ export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
         title=" Work item "
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <text fg={colors.text} attributes={TextAttributes.BOLD}>
+        <text width={contentWidth()} fg={colors.text} attributes={TextAttributes.BOLD} wrapMode="none" truncate>
           {ellipsis(props.item.title, contentWidth())}
         </text>
         <text fg={colors.muted} width={contentWidth()} wrapMode="none" truncate>
@@ -71,27 +75,44 @@ export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
         <text fg={colors.text} width={contentWidth()} height={descriptionHeight()} wrapMode="word" truncate>
           {props.item.description || "No description."}
         </text>
-        <box height={1} />
-        <text
-          fg={colors.muted}
-        >{`Project    ${ellipsis(props.item.namespace, Math.max(8, contentWidth() - 11))}`}</text>
-        <text
-          fg={colors.muted}
-        >{`Author     ${ellipsis(`@${props.item.author}`, Math.max(8, contentWidth() - 11))}`}</text>
-        <text fg={colors.muted}>
-          {`Assignees  ${ellipsis(
-            props.item.assignees.map((name) => `@${name}`).join(", ") || "none",
-            Math.max(8, contentWidth() - 11),
-          )}`}
-        </text>
+        <Show
+          when={compact()}
+          fallback={
+            <>
+              <box height={1} />
+              <text
+                fg={colors.muted}
+              >{`Project    ${ellipsis(props.item.namespace, Math.max(8, contentWidth() - 11))}`}</text>
+              <text
+                fg={colors.muted}
+              >{`Author     ${ellipsis(`@${props.item.author}`, Math.max(8, contentWidth() - 11))}`}</text>
+              <text fg={colors.muted}>
+                {`Assignees  ${ellipsis(
+                  props.item.assignees.map((name) => `@${name}`).join(", ") || "none",
+                  Math.max(8, contentWidth() - 11),
+                )}`}
+              </text>
+            </>
+          }
+        >
+          <text width={contentWidth()} fg={colors.muted} wrapMode="none" truncate>
+            {`Project  ${ellipsis(props.item.namespace, Math.max(8, contentWidth() - 9))}`}
+          </text>
+          <text width={contentWidth()} fg={colors.muted} wrapMode="none" truncate>
+            {ellipsis(
+              `By @${props.item.author}  ·  To ${props.item.assignees.map((name) => `@${name}`).join(", ") || "none"}`,
+              contentWidth(),
+            )}
+          </text>
+        </Show>
         <box flexGrow={1} />
         <box height={1} flexDirection="row" justifyContent="space-between">
           <text fg={colors.muted} onMouseDown={props.onClose}>
-            esc/enter Return
+            {compact() ? "esc Back" : "esc/enter Return"}
           </text>
           <box height={1} flexDirection="row">
             <text fg={colors.active} bg={colors.panelRaised} onMouseDown={props.onOpen}>
-              {" o Open in GitLab "}
+              {compact() ? " o Open " : " o Open in GitLab "}
             </text>
             <text
               fg={props.pending ? colors.muted : props.item.state === "OPEN" ? colors.error : colors.success}
