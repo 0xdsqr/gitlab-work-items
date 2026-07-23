@@ -51,10 +51,11 @@ in
 {
   default = app "${package}/bin/gitlab-work-items" "Browse GitLab work items from the terminal";
   mock = app "${mock}/bin/gitlab-work-items-mock" "Run the TUI with deterministic sample data";
-  audit = app "${audit}/bin/gitlab-work-items-audit" "Audit locked Bun dependencies for known vulnerabilities";
+  audit = app "${audit}/bin/gitlab-work-items-audit" "Audit dependencies, excluding one documented low advisory";
   check = app "${allChecks}/bin/gitlab-work-items-check" "Run every repository check";
   format-check = checkApp "format-check" "formatting" "Check formatting without changing files";
   lint = checkApp "lint" "lint" "Lint the TypeScript workspace";
+  smoke = checkApp "smoke" "packaged-smoke" "Start and stop the packaged TUI with sample data";
   test = checkApp "test" "test" "Run the test suite";
   typecheck = checkApp "typecheck" "typecheck" "Type-check the TypeScript workspace";
 }

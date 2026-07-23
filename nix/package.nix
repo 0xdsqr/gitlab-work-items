@@ -10,6 +10,16 @@
 }:
 let
   runtimePrograms = lib.optional stdenvNoCC.hostPlatform.isLinux xdg-utils;
+  opentuiNativeName =
+    if stdenvNoCC.hostPlatform.isDarwin && stdenvNoCC.hostPlatform.isAarch64 then
+      "core-darwin-arm64"
+    else if stdenvNoCC.hostPlatform.isLinux && stdenvNoCC.hostPlatform.isx86_64 then
+      "core-linux-x64"
+    else
+      throw "Unsupported OpenTUI package platform: ${stdenvNoCC.hostPlatform.system}";
+  opentuiNativePackage = "@opentui/${opentuiNativeName}";
+  opentuiNativeLibrary =
+    if stdenvNoCC.hostPlatform.isDarwin then "libopentui.dylib" else "libopentui.so";
 in
 stdenvNoCC.mkDerivation {
   pname = "gitlab-work-items";
@@ -34,16 +44,35 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/bin" "$out/lib/gitlab-work-items/apps/tui"
-    cp package.json "$out/lib/gitlab-work-items/package.json"
-    cp -R packages "$out/lib/gitlab-work-items/packages"
-    cp -R apps/tui/dist "$out/lib/gitlab-work-items/apps/tui/dist"
-    cp -R apps/tui/node_modules "$out/lib/gitlab-work-items/apps/tui/node_modules"
-    cp -R node_modules "$out/lib/gitlab-work-items/node_modules"
+    runtime_root="$out/lib/gitlab-work-items"
+    core_root="$runtime_root/node_modules/@opentui/core"
+    native_root="$runtime_root/node_modules/${opentuiNativePackage}"
+    opentui_core="$(readlink -f apps/tui/node_modules/@opentui/core)"
+    opentui_native="$(readlink -f "$(dirname "$opentui_core")/${opentuiNativeName}")"
+
+    mkdir -p "$out/bin" "$runtime_root/dist" "$core_root" "$native_root"
+    install -m444 apps/tui/dist/index.js "$runtime_root/dist/index.js"
+
+    # The application bundle contains Solid, Effect, and the OpenTUI Solid
+    # binding. Keep only the external OpenTUI core runtime and this platform's
+    # native renderer instead of copying the workspace dependency tree.
+    for runtime_file in \
+      package.json \
+      LICENSE \
+      index.bun.js \
+      testing.bun.js \
+      chunk-bun-t2myhmwd.js \
+      chunk-bun-tkm837n2.js \
+      parser.worker.js
+    do
+      install -m444 "$opentui_core/$runtime_file" "$core_root/$runtime_file"
+    done
+    for runtime_file in package.json LICENSE index.bun.js ${opentuiNativeLibrary}; do
+      install -m444 "$opentui_native/$runtime_file" "$native_root/$runtime_file"
+    done
+
     makeWrapper ${bun}/bin/bun "$out/bin/gitlab-work-items" \
-      --add-flags "--preload" \
-      --add-flags "$out/lib/gitlab-work-items/apps/tui/node_modules/@opentui/solid/scripts/preload.js" \
-      --add-flags "$out/lib/gitlab-work-items/apps/tui/dist/index.js" \
+      --add-flags "$runtime_root/dist/index.js" \
       ${lib.optionalString (
         runtimePrograms != [ ]
       ) "--prefix PATH : ${lib.makeBinPath runtimePrograms}"}

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   audit:
-    name: Dependency audit
+    name: Dependency audit (documented low advisory excluded)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -46,6 +46,8 @@ jobs:
             check: formatting
           - name: Lint
             check: lint
+          - name: Packaged smoke test
+            check: packaged-smoke
           - name: Typecheck
             check: typecheck
           - name: Test
