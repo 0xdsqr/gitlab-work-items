@@ -10,6 +10,7 @@ type WorkItemSummaryModalProps = {
   screenHeight: number
   item: WorkItem
   pending: boolean
+  mutationEnabled: boolean
   onOpen: () => void
   onToggleState: () => void
   onClose: () => void
@@ -80,9 +81,10 @@ export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
           fallback={
             <>
               <box height={1} />
-              <text
-                fg={colors.muted}
-              >{`Project    ${ellipsis(props.item.namespace, Math.max(8, contentWidth() - 11))}`}</text>
+              <text fg={colors.muted}>{`${props.item.projectId === null ? "Namespace" : "Project  "}  ${ellipsis(
+                props.item.namespace,
+                Math.max(8, contentWidth() - 11),
+              )}`}</text>
               <text
                 fg={colors.muted}
               >{`Author     ${ellipsis(`@${props.item.author}`, Math.max(8, contentWidth() - 11))}`}</text>
@@ -96,7 +98,10 @@ export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
           }
         >
           <text width={contentWidth()} fg={colors.muted} wrapMode="none" truncate>
-            {`Project  ${ellipsis(props.item.namespace, Math.max(8, contentWidth() - 9))}`}
+            {`${props.item.projectId === null ? "Namespace" : "Project"}  ${ellipsis(
+              props.item.namespace,
+              Math.max(8, contentWidth() - 9),
+            )}`}
           </text>
           <text width={contentWidth()} fg={colors.muted} wrapMode="none" truncate>
             {ellipsis(
@@ -114,13 +119,22 @@ export const WorkItemSummaryModal = (props: WorkItemSummaryModalProps) => {
             <text fg={colors.active} bg={colors.panelRaised} onMouseDown={props.onOpen}>
               {compact() ? " o Open " : " o Open in GitLab "}
             </text>
-            <text
-              fg={props.pending ? colors.muted : props.item.state === "OPEN" ? colors.error : colors.success}
-              bg={colors.panelRaised}
-              onMouseDown={props.onToggleState}
+            <Show
+              when={props.mutationEnabled}
+              fallback={
+                <text fg={colors.subtle} bg={colors.panelRaised}>
+                  {" read only "}
+                </text>
+              }
             >
-              {props.pending ? " syncing… " : ` x ${props.item.state === "OPEN" ? "Close" : "Reopen"} `}
-            </text>
+              <text
+                fg={props.pending ? colors.muted : props.item.state === "OPEN" ? colors.error : colors.success}
+                bg={colors.panelRaised}
+                onMouseDown={props.onToggleState}
+              >
+                {props.pending ? " syncing… " : ` x ${props.item.state === "OPEN" ? "Close" : "Reopen"} `}
+              </text>
+            </Show>
           </box>
         </box>
       </box>

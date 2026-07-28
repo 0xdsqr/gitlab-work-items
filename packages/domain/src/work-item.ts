@@ -25,7 +25,7 @@ export type WorkItemLabel = typeof WorkItemLabel.Type
 
 export const WorkItem = Schema.Struct({
   id: Schema.String,
-  projectId: Schema.Number,
+  projectId: Schema.NullOr(Schema.Number),
   iid: Schema.Number,
   type: WorkItemType,
   title: Schema.String,
@@ -54,7 +54,8 @@ export const Workspace = Schema.Struct({
 })
 export type Workspace = typeof Workspace.Type
 
-export type WorkItemScope = "assigned" | "created" | "organization"
+export const WorkItemScope = Schema.Literals(["assigned", "created", "organization"])
+export type WorkItemScope = typeof WorkItemScope.Type
 
 export const typeLabel = (type: WorkItemType) => type.toLowerCase().replaceAll("_", " ")
 

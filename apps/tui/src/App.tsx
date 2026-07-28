@@ -1,8 +1,14 @@
 import {
   applyWorkflowTransition,
+  boardItemsInColumn,
+  boardRefKey,
+  workflowBoardColumns,
   workflowColumns,
   workflowColumnOf,
   workItemsByColumn,
+  type BoardCatalogEntry,
+  type BoardSnapshot,
+  type BoardRef,
   type WorkflowColumnId,
   type WorkItem,
   type WorkItemScope,
@@ -11,17 +17,25 @@ import {
 import {
   createWorkItem,
   gitLabConfigFromEnv,
+  listAssignedEpics,
+  listGroupBoards,
+  loadEpicHierarchy,
+  loadGroupBoardSnapshot,
   loadWorkspace,
   moveWorkItem,
   openWorkItem,
   runGitLabEffect,
   setWorkItemState,
   type GitLabConfig,
+  type GitLabEpicHierarchy,
+  type GitLabGroupBoardSnapshot,
+  type GitLabGroupBoardSummary,
 } from "@gitlab-work-items/gitlab"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { batch, createEffect, createMemo, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 import { Board } from "./components/Board.tsx"
+import { BoardPicker, type BoardPickerEntry } from "./components/BoardPicker.tsx"
 import { CreateWorkItemModal } from "./components/CreateWorkItemModal.tsx"
 import { WorkItems } from "./components/WorkItems.tsx"
 import { ScopeTabs, scopes, SurfaceTabs, type Surface } from "./components/Tabs.tsx"
@@ -66,6 +80,10 @@ export type AppGitLabRuntime = {
   readonly config: GitLabConfig
   readonly configurationInvalid?: boolean
   readonly loadWorkspace: (scope: WorkItemScope, signal: AbortSignal) => Promise<Workspace>
+  readonly listGroupBoards: (signal: AbortSignal) => Promise<readonly GitLabGroupBoardSummary[]>
+  readonly loadGroupBoardSnapshot: (boardId: number, signal: AbortSignal) => Promise<GitLabGroupBoardSnapshot>
+  readonly listAssignedEpics: (signal: AbortSignal) => Promise<readonly WorkItem[]>
+  readonly loadEpicHierarchy: (epicId: string, signal: AbortSignal) => Promise<GitLabEpicHierarchy>
   readonly moveWorkItem: (item: WorkItem, target: WorkflowColumnId, signal: AbortSignal) => Promise<WorkItem>
   readonly setWorkItemState: (item: WorkItem, state: WorkItem["state"], signal: AbortSignal) => Promise<WorkItem>
   readonly createWorkItem: (project: string, title: string, signal: AbortSignal) => Promise<WorkItem>
@@ -76,6 +94,10 @@ const runtimeWithConfig = (config: GitLabConfig, configurationInvalid = false): 
   config,
   configurationInvalid,
   loadWorkspace: (scope, signal) => runGitLabEffect(loadWorkspace(scope), { signal }),
+  listGroupBoards: (signal) => runGitLabEffect(listGroupBoards(), { signal }),
+  loadGroupBoardSnapshot: (boardId, signal) => runGitLabEffect(loadGroupBoardSnapshot(boardId), { signal }),
+  listAssignedEpics: (signal) => runGitLabEffect(listAssignedEpics(), { signal }),
+  loadEpicHierarchy: (epicId, signal) => runGitLabEffect(loadEpicHierarchy(epicId), { signal }),
   moveWorkItem: (item, target, signal) => runGitLabEffect(moveWorkItem(item, target), { signal }),
   setWorkItemState: (item, state, signal) => runGitLabEffect(setWorkItemState(item, state), { signal }),
   createWorkItem: (project, title, signal) => runGitLabEffect(createWorkItem(project, title), { signal }),
@@ -130,6 +152,96 @@ const TerminalTooSmall = (props: { width: number; height: number }) => (
   </box>
 )
 
+const numericEntityId = (value: number | string | null, fallback: number) => {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return value
+  if (typeof value === "string") {
+    const match = value.match(/([1-9][0-9]*)$/u)
+    const parsed = match ? Number(match[1]) : Number.NaN
+    if (Number.isSafeInteger(parsed)) return parsed
+  }
+  return fallback
+}
+
+const nativeBoardSnapshot = (
+  snapshot: GitLabGroupBoardSnapshot,
+  entry: BoardCatalogEntry,
+  summary: GitLabGroupBoardSummary | null,
+): BoardSnapshot => {
+  const readOnlyMove = {
+    kind: "read-only" as const,
+    reason: "Native GitLab board movement is not enabled yet",
+  }
+  const visibleLists = snapshot.lists.filter(
+    (list) =>
+      !(list.kind === "backlog" && summary?.hideBacklogList) && !(list.kind === "closed" && summary?.hideClosedList),
+  )
+  const columns = visibleLists.map((list) => {
+    const fallbackId = list.gitLabListId ?? list.position + 1
+    const valueId = numericEntityId(list.valueId, fallbackId)
+    const target =
+      list.kind === "backlog"
+        ? ({ kind: "backlog" } as const)
+        : list.kind === "closed"
+          ? ({ kind: "closed" } as const)
+          : list.kind === "label"
+            ? ({ kind: "label", labelId: valueId, labelName: list.title } as const)
+            : list.kind === "assignee"
+              ? ({ kind: "assignee", userId: valueId, username: list.title } as const)
+              : list.kind === "milestone"
+                ? ({ kind: "milestone", milestoneId: valueId, title: list.title } as const)
+                : list.kind === "iteration"
+                  ? ({ kind: "iteration", iterationId: valueId, title: list.title } as const)
+                  : list.kind === "status"
+                    ? ({ kind: "status", statusId: valueId, name: list.title } as const)
+                    : ({ kind: "unknown", rawKind: list.rawKind || "unknown" } as const)
+    return {
+      id: list.id,
+      title: list.title,
+      hint: "GitLab list · read only",
+      color: list.color,
+      position: list.position,
+      gitLabListId: list.gitLabListId,
+      list: target,
+      move: readOnlyMove,
+    }
+  })
+  return {
+    board: entry,
+    columns,
+    items: snapshot.items,
+    cards: snapshot.cards
+      .filter((card) => visibleLists.some((list) => list.id === card.listId))
+      .map((card) => ({
+        itemId: card.itemId,
+        columnId: card.listId,
+        position: card.position,
+        parentItemId: null,
+        depth: 0,
+      })),
+    fetchedAt: snapshot.fetchedAt,
+  }
+}
+
+const epicBoardSnapshot = (hierarchy: GitLabEpicHierarchy, entry: BoardCatalogEntry): BoardSnapshot => {
+  const descendants = hierarchy.descendants.filter(({ item }) => item.type !== "EPIC")
+  return {
+    board: {
+      ...entry,
+      itemCount: descendants.length,
+    },
+    columns: workflowBoardColumns,
+    items: descendants.map(({ item }) => item),
+    cards: descendants.map(({ item, parentId, depth }, position) => ({
+      itemId: item.id,
+      columnId: workflowColumnOf(item),
+      position,
+      parentItemId: parentId,
+      depth,
+    })),
+    fetchedAt: new Date().toISOString(),
+  }
+}
+
 export const App = (props: AppProps = {}) => {
   const renderer = useRenderer()
   const dimensions = useTerminalDimensions()
@@ -143,6 +255,14 @@ export const App = (props: AppProps = {}) => {
   const [workItemQueryEditing, setWorkItemQueryEditing] = createSignal(false)
   const [boardColumnIndex, setBoardColumnIndex] = createSignal(0)
   const [boardCardIndex, setBoardCardIndex] = createSignal(0)
+  const [activeBoard, setActiveBoard] = createSignal<BoardRef>({ kind: "smart", scope: "assigned" })
+  const [activeSnapshot, setActiveSnapshot] = createSignal<BoardSnapshot | null>(null)
+  const [boardPickerOpen, setBoardPickerOpen] = createSignal(false)
+  const [groupBoards, setGroupBoards] = createSignal<readonly GitLabGroupBoardSummary[]>([])
+  const [assignedEpics, setAssignedEpics] = createSignal<readonly WorkItem[]>([])
+  const [catalogStatus, setCatalogStatus] = createSignal<"idle" | "loading" | "ready" | "partial">("idle")
+  const [catalogNotice, setCatalogNotice] = createSignal<string | null>(null)
+  const [catalogRefreshKey, setCatalogRefreshKey] = createSignal(0)
   const [items, setItems] = createSignal<readonly WorkItem[]>([])
   const [username, setUsername] = createSignal("GitLab")
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading")
@@ -176,14 +296,101 @@ export const App = (props: AppProps = {}) => {
   const scope = createMemo(() => scopes[scopeIndex()]?.id ?? "assigned")
   const grouped = createMemo(() => workItemsByColumn(items()))
   const filteredItems = createMemo(() => filterWorkItems(items(), workItemFilter(), workItemQuery()))
-  const boardColumn = createMemo(() => workflowColumns[boardColumnIndex()] ?? workflowColumns[0])
-  const boardItems = createMemo(() => grouped()[boardColumn().id])
+  const boardColumns = createMemo(() => activeSnapshot()?.columns ?? workflowBoardColumns)
+  const boardCards = createMemo(() => {
+    const snapshot = activeSnapshot()
+    if (!snapshot) return null
+    if (snapshot.board.ref.kind !== "epic") return snapshot.cards
+    const itemById = new Map(items().map((item) => [item.id, item]))
+    return snapshot.cards.map((card) => {
+      const item = itemById.get(card.itemId)
+      return item ? { ...card, columnId: workflowColumnOf(item) } : card
+    })
+  })
+  const boardColumn = createMemo(() => boardColumns()[boardColumnIndex()] ?? boardColumns()[0] ?? null)
+  const boardItems = createMemo(() => {
+    const column = boardColumn()
+    if (!column) return []
+    const snapshot = activeSnapshot()
+    if (snapshot)
+      return boardItemsInColumn(
+        {
+          ...snapshot,
+          items: items(),
+          cards: boardCards() ?? snapshot.cards,
+        },
+        column.id,
+      )
+    if (column.list.kind === "workflow") return grouped()[column.list.column]
+    return []
+  })
   const workItemsSelected = createMemo(() => filteredItems()[workItemsIndex()] ?? null)
   const boardSelected = createMemo(() => boardItems()[boardCardIndex()] ?? null)
   const selected = createMemo(() => (surface() === "work-items" ? workItemsSelected() : boardSelected()))
   const summaryItem = createMemo(() => items().find((item) => item.id === summaryItemId()) ?? null)
   const contentHeight = createMemo(() => Math.max(1, height() - 6))
   const scopeLabel = createMemo(() => scopes[scopeIndex()]?.label ?? "My work")
+  const boardCatalog = createMemo<readonly BoardCatalogEntry[]>(() => [
+    ...scopes.map((candidate) => ({
+      ref: { kind: "smart" as const, scope: candidate.id },
+      title: candidate.label,
+      subtitle:
+        candidate.id === "assigned"
+          ? "Assigned to me"
+          : candidate.id === "created"
+            ? "Created by me"
+            : config.group
+              ? `All work in ${config.group}`
+              : "Set GLWI_GROUP to enable",
+      itemCount: candidate.id === scope() && activeBoard().kind === "smart" ? items().length : null,
+      webUrl: null,
+      unavailableReason: candidate.id === "organization" && !config.group ? "GLWI_GROUP is not configured" : null,
+      capabilities: ["refresh", "filter", "move-cards"] as const,
+    })),
+    ...groupBoards().map((board) => ({
+      ref: { kind: "gitlab" as const, groupPath: config.group ?? board.group.name, boardId: board.id },
+      title: board.name,
+      subtitle: `GitLab board · ${config.group ?? board.group.name}`,
+      itemCount: null,
+      webUrl: `${board.group.webUrl.replace(/\/+$/u, "")}/-/boards/${board.id}`,
+      unavailableReason: null,
+      capabilities: ["refresh", "filter"] as const,
+    })),
+    ...assignedEpics().map((epic) => ({
+      ref: { kind: "epic" as const, epicId: epic.id },
+      title: epic.title,
+      subtitle: `${epic.reference} · assigned epic`,
+      itemCount: null,
+      webUrl: epic.webUrl,
+      unavailableReason: null,
+      capabilities: ["refresh", "filter", "move-cards", "hierarchy"] as const,
+    })),
+  ])
+  const activeBoardEntry = createMemo(
+    () => boardCatalog().find((entry) => boardRefKey(entry.ref) === boardRefKey(activeBoard())) ?? null,
+  )
+  const activeBoardTitle = createMemo(() => {
+    const entry = activeSnapshot()?.board ?? activeBoardEntry()
+    if (!entry) return scopeLabel()
+    if (entry.ref.kind === "gitlab") return `GitLab · ${entry.title}`
+    if (entry.ref.kind === "epic") return `Epic · ${entry.title}`
+    return entry.title
+  })
+  const activeBoardBadge = createMemo(() => {
+    const kind = activeBoard().kind
+    return kind === "gitlab" ? "GITLAB" : kind === "epic" ? "EPIC" : "SMART"
+  })
+  const boardPickerEntries = createMemo<readonly BoardPickerEntry[]>(() =>
+    boardCatalog().map((entry) => ({
+      id: boardRefKey(entry.ref),
+      kind: entry.ref.kind,
+      title: entry.title,
+      ...(entry.subtitle ? { subtitle: entry.subtitle } : {}),
+      ...(entry.itemCount === null ? {} : { badge: String(entry.itemCount) }),
+      unavailableReason: entry.unavailableReason,
+    })),
+  )
+  const itemMutationsEnabled = createMemo(() => activeBoard().kind !== "gitlab")
   const toastColor = createMemo(() => {
     const message = toast().toLowerCase()
     if (message.includes("failed") || message.includes("could not")) return colors.error
@@ -203,8 +410,10 @@ export const App = (props: AppProps = {}) => {
       return width() >= 72
         ? "j/k select  / search  f status  enter details  n create"
         : "j/k select  / search  enter details"
-    if (width() >= 72) return "h/l stages  j/k cards  [/] move  enter details  drag with ⠿"
-    return "h/l stage  j/k card  [ ] move  enter"
+    if (activeBoard().kind === "gitlab")
+      return width() >= 72 ? "b boards  h/l lists  j/k cards  enter details  r sync" : "b boards  h/l list  j/k card"
+    if (width() >= 72) return "b boards  h/l stages  j/k cards  [/] move  enter details  drag with ⠿"
+    return "b boards  h/l stage  j/k card  [ ] move"
   })
 
   const refresh = () => {
@@ -213,6 +422,7 @@ export const App = (props: AppProps = {}) => {
       return
     }
     setRefreshKey((value) => value + 1)
+    setCatalogRefreshKey((value) => value + 1)
   }
 
   onMount(() => renderer.setBackgroundColor(colors.background))
@@ -228,7 +438,48 @@ export const App = (props: AppProps = {}) => {
   })
 
   createEffect(() => {
-    const requestedScope = scope()
+    catalogRefreshKey()
+    if (gitLab.configurationInvalid || !config.group) {
+      batch(() => {
+        setGroupBoards([])
+        setAssignedEpics([])
+        setCatalogStatus("idle")
+        setCatalogNotice(config.group ? "Board discovery is unavailable until the configuration is fixed." : null)
+      })
+      return
+    }
+
+    batch(() => {
+      setCatalogStatus("loading")
+      setCatalogNotice(null)
+    })
+    const operation = runOperation((signal) =>
+      Promise.allSettled([gitLab.listGroupBoards(signal), gitLab.listAssignedEpics(signal)]),
+    )
+    void operation.promise.then((results) => {
+      if (disposed || operation.controller.signal.aborted) return
+      const [boardsResult, epicsResult] = results
+      const failures: string[] = []
+      batch(() => {
+        if (boardsResult?.status === "fulfilled") setGroupBoards(boardsResult.value)
+        else {
+          if (boardsResult) failures.push(`boards: ${messageOf(boardsResult.reason)}`)
+        }
+        if (epicsResult?.status === "fulfilled") setAssignedEpics(epicsResult.value)
+        else {
+          if (epicsResult) failures.push(`epics: ${messageOf(epicsResult.reason)}`)
+        }
+        setCatalogStatus(failures.length === 0 ? "ready" : "partial")
+        setCatalogNotice(failures.length === 0 ? null : failures.join(" · "))
+      })
+    })
+
+    onCleanup(() => operation.controller.abort())
+  })
+
+  createEffect(() => {
+    const requestedBoard = activeBoard()
+    const requestedScope = requestedBoard.kind === "smart" ? requestedBoard.scope : scope()
     refreshKey()
 
     batch(() => {
@@ -238,26 +489,47 @@ export const App = (props: AppProps = {}) => {
       setToast("Syncing with GitLab…")
     })
 
-    const operation = runOperation((signal) => gitLab.loadWorkspace(requestedScope, signal))
+    const operation = runOperation(async (signal) => {
+      if (requestedBoard.kind === "smart")
+        return { kind: "workspace" as const, workspace: await gitLab.loadWorkspace(requestedBoard.scope, signal) }
+
+      const entry =
+        boardCatalog().find((candidate) => boardRefKey(candidate.ref) === boardRefKey(requestedBoard)) ?? null
+      if (!entry) throw new Error("The selected board is no longer available")
+      if (requestedBoard.kind === "epic") {
+        const hierarchy = await gitLab.loadEpicHierarchy(requestedBoard.epicId, signal)
+        return { kind: "snapshot" as const, snapshot: epicBoardSnapshot(hierarchy, entry) }
+      }
+      const snapshot = await gitLab.loadGroupBoardSnapshot(requestedBoard.boardId, signal)
+      const summary = groupBoards().find((board) => board.id === requestedBoard.boardId) ?? null
+      return { kind: "snapshot" as const, snapshot: nativeBoardSnapshot(snapshot, entry, summary) }
+    })
     void operation.promise.then(
-      (workspace) => {
+      (result) => {
         if (disposed || operation.controller.signal.aborted) return
-        const initialGroups = workItemsByColumn(workspace.items)
-        const firstPopulatedColumn = workflowColumns.findIndex((column) => initialGroups[column.id].length > 0)
+        const nextItems = result.kind === "workspace" ? result.workspace.items : result.snapshot.items
+        const nextSnapshot = result.kind === "snapshot" ? result.snapshot : null
+        const initialGroups = workItemsByColumn(nextItems)
+        const firstPopulatedColumn =
+          nextSnapshot === null
+            ? workflowColumns.findIndex((column) => initialGroups[column.id].length > 0)
+            : nextSnapshot.columns.findIndex((column) => nextSnapshot.cards.some((card) => card.columnId === column.id))
         batch(() => {
-          setItems(workspace.items)
-          setUsername(workspace.user.username)
+          setItems(nextItems)
+          setActiveSnapshot(nextSnapshot)
+          if (result.kind === "workspace") setUsername(result.workspace.user.username)
           setWorkItemsIndex(0)
           setBoardColumnIndex(Math.max(0, firstPopulatedColumn))
           setBoardCardIndex(0)
           setStatus("ready")
-          setToast(`${workspace.items.length} work items synced`)
+          setToast(`${nextItems.length} work items synced`)
         })
       },
       (cause) => {
         if (disposed || operation.controller.signal.aborted) return
         batch(() => {
           setItems([])
+          setActiveSnapshot(null)
           setError({
             detail: gitLab.configurationInvalid ? "GitLab configuration is invalid." : messageOf(cause),
             remediation: gitLab.configurationInvalid
@@ -279,7 +551,11 @@ export const App = (props: AppProps = {}) => {
       return
     }
     const index = scopes.findIndex((candidate) => candidate.id === next)
-    if (index >= 0) setScopeIndex(index)
+    if (index >= 0)
+      batch(() => {
+        setScopeIndex(index)
+        setActiveBoard({ kind: "smart", scope: next })
+      })
   }
 
   const selectWorkItemFilter = (next: WorkItemStateFilter) => {
@@ -299,6 +575,10 @@ export const App = (props: AppProps = {}) => {
   const openCreate = () => {
     if (status() !== "ready" || pendingItemId()) {
       setToast("Wait for GitLab sync to finish")
+      return
+    }
+    if (activeBoard().kind === "gitlab") {
+      setToast("Create from a smart view so the destination project is explicit")
       return
     }
     const current = selected()
@@ -362,6 +642,10 @@ export const App = (props: AppProps = {}) => {
   const toggleState = (item: WorkItem) => {
     if (status() !== "ready" || pendingItemId()) {
       setToast("Wait for the current GitLab update to finish")
+      return
+    }
+    if (activeBoard().kind === "gitlab") {
+      setToast("This native GitLab board is read only")
       return
     }
     const nextState = item.state === "OPEN" ? "CLOSED" : "OPEN"
@@ -436,10 +720,13 @@ export const App = (props: AppProps = {}) => {
       (created) => {
         if (disposed || operation.controller.signal.aborted) return
         const createdScopeIndex = scopes.findIndex((candidate) => candidate.id === "created")
-        const alreadyShowingCreated = scope() === "created"
+        const alreadyShowingCreated = activeBoard().kind === "smart" && scope() === "created"
         batch(() => {
           if (alreadyShowingCreated) setItems((current) => [created, ...current])
-          else if (createdScopeIndex >= 0) setScopeIndex(createdScopeIndex)
+          else if (createdScopeIndex >= 0) {
+            setScopeIndex(createdScopeIndex)
+            setActiveBoard({ kind: "smart", scope: "created" })
+          }
           setWorkItemFilter("open")
           setWorkItemQuery("")
           setWorkItemsIndex(0)
@@ -470,6 +757,8 @@ export const App = (props: AppProps = {}) => {
       renderer.destroy()
       return
     }
+
+    if (boardPickerOpen()) return
 
     const form = createForm()
     if (form) {
@@ -529,6 +818,17 @@ export const App = (props: AppProps = {}) => {
       refresh()
       return
     }
+    if (key.name === "b") {
+      key.preventDefault()
+      key.stopPropagation()
+      if (pendingItemId() || creating()) {
+        setToast("Wait for the current GitLab update to finish")
+        return
+      }
+      if (catalogNotice()) setToast(`Some board sources are unavailable · ${catalogNotice()}`)
+      setBoardPickerOpen(true)
+      return
+    }
     if (key.name === "n") {
       key.preventDefault()
       key.stopPropagation()
@@ -581,7 +881,7 @@ export const App = (props: AppProps = {}) => {
     }
     if (key.name === "l" || key.name === "right") {
       batch(() => {
-        setBoardColumnIndex((index) => Math.min(workflowColumns.length - 1, index + 1))
+        setBoardColumnIndex((index) => Math.min(Math.max(0, boardColumns().length - 1), index + 1))
         setBoardCardIndex(0)
       })
       return
@@ -605,15 +905,20 @@ export const App = (props: AppProps = {}) => {
       return
     }
     if ((key.sequence === "[" || key.name === "[") && currentBoardItem && boardColumnIndex() > 0) {
-      move(currentBoardItem, workflowColumns[boardColumnIndex() - 1]?.id ?? "backlog")
+      const target = boardColumns()[boardColumnIndex() - 1]
+      if (target?.list.kind === "workflow") move(currentBoardItem, target.list.column)
+      else setToast("This native GitLab board is read only")
       return
     }
     if (
       (key.sequence === "]" || key.name === "]") &&
       currentBoardItem &&
-      boardColumnIndex() < workflowColumns.length - 1
-    )
-      move(currentBoardItem, workflowColumns[boardColumnIndex() + 1]?.id ?? "closed")
+      boardColumnIndex() < boardColumns().length - 1
+    ) {
+      const target = boardColumns()[boardColumnIndex() + 1]
+      if (target?.list.kind === "workflow") move(currentBoardItem, target.list.column)
+      else setToast("This native GitLab board is read only")
+    }
   })
 
   return (
@@ -656,9 +961,26 @@ export const App = (props: AppProps = {}) => {
           </text>
         </box>
         <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
-          <ScopeTabs active={scope()} group={config.group} compact={width() < 76} onSelect={selectScope} />
-          <Show when={width() >= 76}>
-            <text fg={colors.subtle}>tab changes scope</text>
+          <Show
+            when={activeBoard().kind === "smart"}
+            fallback={
+              <>
+                <text fg={colors.muted} wrapMode="none" truncate>
+                  <StyledSpan fg={activeBoard().kind === "epic" ? colors.epic : colors.gitlab}>
+                    {activeBoard().kind === "epic" ? "◆" : "▦"}
+                  </StyledSpan>{" "}
+                  {ellipsis(activeBoardTitle(), Math.max(12, width() - 28))}
+                </text>
+                <Show when={width() >= 64}>
+                  <text fg={colors.subtle}>b switch · tab smart views</text>
+                </Show>
+              </>
+            }
+          >
+            <ScopeTabs active={scope()} group={config.group} compact={width() < 76} onSelect={selectScope} />
+            <Show when={width() >= 76}>
+              <text fg={colors.subtle}>tab changes scope · b all boards</text>
+            </Show>
           </Show>
         </box>
         <text fg={colors.border}>{"─".repeat(Math.max(1, width()))}</text>
@@ -669,22 +991,36 @@ export const App = (props: AppProps = {}) => {
               width={width()}
               height={contentHeight()}
               items={items()}
+              columns={boardColumns()}
+              {...(boardCards() ? { cards: boardCards()! } : {})}
+              title={activeBoardTitle()}
+              badge={activeBoardBadge()}
+              {...(activeBoard().kind === "epic" ? { emptyTitle: "No actionable work in this epic yet" } : {})}
+              {...(activeBoard().kind === "gitlab"
+                ? { emptyHint: "No cards are visible in this board. Press r to sync again." }
+                : {})}
               focusedColumnIndex={boardColumnIndex()}
               selectedIndex={boardCardIndex()}
               pendingItemId={pendingItemId()}
               onSelect={(column, index) => {
-                const nextColumn = workflowColumns.findIndex((candidate) => candidate.id === column)
+                const nextColumn = boardColumns().findIndex((candidate) => candidate.id === column.id)
                 batch(() => {
                   if (nextColumn >= 0) setBoardColumnIndex(nextColumn)
                   setBoardCardIndex(index)
                 })
               }}
-              onMove={move}
+              {...(activeBoard().kind === "gitlab"
+                ? {}
+                : {
+                    onMove: (item: WorkItem, column: (typeof workflowBoardColumns)[number]) => {
+                      if (column.list.kind === "workflow") move(item, column.list.column)
+                    },
+                  })}
             />
           }
         >
           <Match when={status() === "loading"}>
-            <LoadingWorkspace width={width()} height={contentHeight()} scope={scopeLabel()} />
+            <LoadingWorkspace width={width()} height={contentHeight()} scope={activeBoardTitle()} />
           </Match>
           <Match when={status() === "error"}>
             <box
@@ -727,6 +1063,7 @@ export const App = (props: AppProps = {}) => {
               onQueryChange={updateWorkItemQuery}
               onQueryEditingChange={setWorkItemQueryEditing}
               onCreate={openCreate}
+              mutationEnabled={itemMutationsEnabled()}
             />
           </Match>
         </Switch>
@@ -740,8 +1077,11 @@ export const App = (props: AppProps = {}) => {
           <text fg={colors.muted} wrapMode="none" truncate>
             {ellipsis(primaryHelp(), Math.max(8, width() - (width() >= 112 ? 42 : 2)))}
           </text>
-          <Show when={width() >= 112}>
+          <Show when={width() >= 112 && itemMutationsEnabled()}>
             <text fg={colors.muted}>o GitLab x close/reopen r sync q quit</text>
+          </Show>
+          <Show when={width() >= 112 && !itemMutationsEnabled()}>
+            <text fg={colors.muted}>o GitLab · read only · r sync q quit</text>
           </Show>
         </box>
 
@@ -769,11 +1109,37 @@ export const App = (props: AppProps = {}) => {
               screenHeight={height()}
               item={item()}
               pending={pendingItemId() === item().id}
+              mutationEnabled={itemMutationsEnabled()}
               onOpen={() => openInGitLab(item())}
               onToggleState={() => toggleState(item())}
               onClose={() => setSummaryItemId(null)}
             />
           )}
+        </Show>
+        <Show when={boardPickerOpen()}>
+          <BoardPicker
+            screenWidth={width()}
+            screenHeight={height()}
+            entries={boardPickerEntries()}
+            activeId={boardRefKey(activeBoard())}
+            title={catalogStatus() === "loading" ? "Switch board · syncing" : "Switch board"}
+            notice={catalogNotice()}
+            onSelect={(entry) => {
+              const selectedBoard = boardCatalog().find((candidate) => boardRefKey(candidate.ref) === entry.id)
+              if (!selectedBoard || selectedBoard.unavailableReason) return
+              batch(() => {
+                if (selectedBoard.ref.kind === "smart") selectScope(selectedBoard.ref.scope)
+                else {
+                  setActiveBoard(selectedBoard.ref)
+                  setBoardColumnIndex(0)
+                  setBoardCardIndex(0)
+                  setSurface("board")
+                }
+                setBoardPickerOpen(false)
+              })
+            }}
+            onClose={() => setBoardPickerOpen(false)}
+          />
         </Show>
       </box>
     </Show>

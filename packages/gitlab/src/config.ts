@@ -101,6 +101,15 @@ export const gitLabApiUrl = (host: string, path: string, authenticated = false) 
   return url.toString()
 }
 
+export const gitLabGraphqlUrl = (host: string, authenticated = false) => {
+  const { url } = parseGitLabHost(host)
+  if (authenticated && url.protocol !== "https:" && !isLoopback(url.hostname))
+    throw new Error("Refusing to send a GitLab token over an insecure connection; use HTTPS in GITLAB_HOST")
+  const basePath = url.pathname.replace(/\/+$/u, "")
+  url.pathname = `${basePath}/api/graphql`
+  return url.toString()
+}
+
 export const gitLabHostname = (host: string) => parseGitLabHost(host).url.host
 
 const validateGitLabApiPageUrl = (host: string, currentUrl: string, candidate: string, authenticated: boolean) => {

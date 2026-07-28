@@ -26,6 +26,7 @@ type WorkItemsProps = {
   onQueryChange: (query: string) => void
   onQueryEditingChange: (editing: boolean) => void
   onCreate: () => void
+  mutationEnabled: boolean
 }
 
 export const WorkItems = (props: WorkItemsProps) => {
@@ -60,16 +61,25 @@ export const WorkItems = (props: WorkItemsProps) => {
         <text fg={colors.text} attributes={TextAttributes.BOLD}>
           Work items
         </text>
-        <text
-          fg={colors.text}
-          bg={createHovered() ? colors.accentStrong : colors.confirm}
-          attributes={TextAttributes.BOLD}
-          onMouseDown={props.onCreate}
-          onMouseOver={() => setCreateHovered(true)}
-          onMouseOut={() => setCreateHovered(false)}
+        <Show
+          when={props.mutationEnabled}
+          fallback={
+            <text fg={colors.subtle} attributes={TextAttributes.BOLD}>
+              {" read only "}
+            </text>
+          }
         >
-          {props.width >= 58 ? " + Create work item " : " + New "}
-        </text>
+          <text
+            fg={colors.text}
+            bg={createHovered() ? colors.accentStrong : colors.confirm}
+            attributes={TextAttributes.BOLD}
+            onMouseDown={props.onCreate}
+            onMouseOver={() => setCreateHovered(true)}
+            onMouseOut={() => setCreateHovered(false)}
+          >
+            {props.width >= 58 ? " + Create work item " : " + New "}
+          </text>
+        </Show>
       </box>
       <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" backgroundColor={colors.panel}>
         <text fg={colors.active}>⌕ </text>
@@ -219,7 +229,10 @@ export const WorkItems = (props: WorkItemsProps) => {
                   </text>
                   <box height={1} />
                   <text fg={colors.muted} wrapMode="none" truncate>
-                    {`Project    ${ellipsis(item().namespace, Math.max(6, detailWidth() - 13))}`}
+                    {`${item().projectId === null ? "Namespace" : "Project  "}  ${ellipsis(
+                      item().namespace,
+                      Math.max(6, detailWidth() - 13),
+                    )}`}
                   </text>
                   <text fg={colors.muted} wrapMode="none" truncate>
                     {`Author     ${ellipsis(`@${item().author}`, Math.max(6, detailWidth() - 13))}`}
@@ -234,9 +247,11 @@ export const WorkItems = (props: WorkItemsProps) => {
                   </text>
                   <box flexGrow={1} />
                   <text fg={colors.active}>o Open in GitLab</text>
-                  <text fg={item().state === "OPEN" ? colors.error : colors.success}>
-                    {`x  ${item().state === "OPEN" ? "Close" : "Reopen"} work item`}
-                  </text>
+                  <Show when={props.mutationEnabled} fallback={<text fg={colors.subtle}>Read-only GitLab board</text>}>
+                    <text fg={item().state === "OPEN" ? colors.error : colors.success}>
+                      {`x  ${item().state === "OPEN" ? "Close" : "Reopen"} work item`}
+                    </text>
+                  </Show>
                 </>
               )}
             </Show>

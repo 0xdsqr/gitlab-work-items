@@ -39,15 +39,23 @@ export const visibleWindowStart = (itemCount: number, capacity: number, selected
 
 const minimumWorkflowColumnWidth = 25
 
-export const visibleWorkflowColumns = (width: number, focusedIndex: number) => {
+export const visibleBoardColumns = <Column>(
+  columns: readonly Column[],
+  width: number,
+  focusedIndex: number,
+): readonly Column[] => {
+  if (columns.length === 0) return []
   const count = Math.max(
     1,
-    Math.min(workflowColumns.length, Math.floor((Math.max(1, width) + 1) / (minimumWorkflowColumnWidth + 1))),
+    Math.min(columns.length, Math.floor((Math.max(1, width) + 1) / (minimumWorkflowColumnWidth + 1))),
   )
-  const focused = Math.max(0, Math.min(workflowColumns.length - 1, focusedIndex))
-  const start = Math.max(0, Math.min(workflowColumns.length - count, focused - Math.floor(count / 2)))
-  return workflowColumns.slice(start, start + count)
+  const focused = Math.max(0, Math.min(columns.length - 1, focusedIndex))
+  const start = Math.max(0, Math.min(columns.length - count, focused - Math.floor(count / 2)))
+  return columns.slice(start, start + count)
 }
+
+export const visibleWorkflowColumns = (width: number, focusedIndex: number) =>
+  visibleBoardColumns(workflowColumns, width, focusedIndex)
 
 export const terminalSizeSupported = (width: number, height: number) => width >= 44 && height >= 16
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   gitLabApiUrl,
   gitLabConfigFromEnv,
+  gitLabGraphqlUrl,
   gitLabHostname,
   gitLabNextPageUrl,
   issuePathFor,
@@ -42,12 +43,15 @@ describe("GitLab configuration", () => {
     expect(gitLabApiUrl("https://example.com/gitlab", "issues?state=all", true)).toBe(
       "https://example.com/gitlab/api/v4/issues?state=all",
     )
+    expect(gitLabGraphqlUrl("https://example.com/gitlab", true)).toBe("https://example.com/gitlab/api/graphql")
     expect(gitLabHostname("https://example.com:8443/gitlab")).toBe("example.com:8443")
   })
 
   it("refuses to send tokens over non-loopback HTTP", () => {
     expect(() => gitLabApiUrl("http://gitlab.example.com", "issues", true)).toThrow("insecure connection")
+    expect(() => gitLabGraphqlUrl("http://gitlab.example.com", true)).toThrow("insecure connection")
     expect(gitLabApiUrl("http://localhost:3000", "issues", true)).toBe("http://localhost:3000/api/v4/issues")
+    expect(gitLabGraphqlUrl("http://localhost:3000", true)).toBe("http://localhost:3000/api/graphql")
     expect(gitLabApiUrl("http://[::1]:3000", "issues", true)).toBe("http://[::1]:3000/api/v4/issues")
   })
 

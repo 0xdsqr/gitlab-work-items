@@ -37,6 +37,9 @@ jobs:
             exit 1
           fi
 
+      - name: Audit locked dependencies
+        run: nix run .#audit
+
       - name: Run Nix quality gate
         run: nix flake check --print-build-logs
 

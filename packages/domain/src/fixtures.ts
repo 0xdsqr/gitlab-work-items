@@ -5,7 +5,7 @@ export const mockWorkspace: Workspace = {
   items: [
     {
       id: "gid://gitlab/WorkItem/101",
-      projectId: 11,
+      projectId: null,
       iid: 42,
       type: "EPIC",
       title: "Unify the developer work queue",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { mockWorkspace } from "../src/fixtures.ts"
 import { relativeAge, typeLabel } from "../src/work-item.ts"
 
 describe("work-item presentation", () => {
@@ -14,5 +15,9 @@ describe("work-item presentation", () => {
     const now = Date.parse("2026-07-15T12:30:00.000Z")
     expect(relativeAge("not-a-date", now)).toBe("unknown")
     expect(relativeAge("2026-07-15T13:00:00.000Z", now)).toBe("0m")
+  })
+
+  it("represents group-level work items without a project ID", () => {
+    expect(mockWorkspace.items[0]).toMatchObject({ type: "EPIC", projectId: null })
   })
 })

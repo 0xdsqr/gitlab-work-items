@@ -5,7 +5,9 @@ A keyboard-first terminal UI for viewing and managing GitLab work items across y
 The current vertical slice includes:
 
 - assigned-to-me, created-by-me, and group scopes;
-- a primary five-stage Kanban board and filterable work-item inventory;
+- one five-stage smart board across projects, persisted group issue boards, and a focused workflow board for every
+  assigned epic;
+- a searchable, grouped board switcher plus a filterable work-item inventory shared by every board;
 - mouse drag/drop plus complete keyboard navigation;
 - live create, move, close, reopen, and open-in-GitLab actions;
 - GitLab-native label and scoped-label colors, assignees, type, reference, and update age on cards;
@@ -28,8 +30,8 @@ nix run github:0xdsqr/gitlab-work-items#mock
 ```
 
 Sample mode never contacts GitLab and will not mirror a real board. Live mode fetches fresh, paginated data on every
-launch and scope change; `r` is only a manual resync, so restarting or changing scopes does not require an additional
-refresh.
+launch, scope change, and board switch; `r` is only a manual resync. The app also refreshes board discovery on `r`, so
+you do not need to restart it when GitLab changes.
 
 Install the command into your current Nix profile when you want `gitlab-work-items` available on `PATH`:
 
@@ -119,6 +121,8 @@ needed at runtime. It does not ship workspace sources, test tools, or the develo
 The audit fails on every known advisory except the explicitly ignored `GHSA-4x5r-pxfx-6jf8`, a low-severity,
 build-time advisory. `@opentui/solid@0.4.5` exact-pins the affected `@babel/core@7.28.0` even though patched Babel 7
 releases exist. Remove this exception as soon as OpenTUI updates that exact dependency.
+The root override also lifts OpenTUI's transitive `brace-expansion` to patched `5.0.8`; builds and tests guard that
+major-version override until the upstream dependency chain adopts it directly.
 
 ## Releases
 
@@ -131,6 +135,8 @@ installation path.
 Controls:
 
 - `1` / `2` opens Board / Work Items; `tab` changes scope.
+- `b` opens the searchable board switcher from either surface. It groups smart views, the configured group's persisted
+  issue boards, and epics assigned to you.
 - `h` / `l` changes board column; `j` / `k` changes card.
 - `[` / `]` moves the selected card; `enter` opens its details from either surface. For mouse drag/drop, hold the left button on a card's
   `⠿` grip, move it over a visible destination column, and release when the column says `Release to move here`; no
@@ -140,6 +146,16 @@ Controls:
   return to list navigation.
 - `n` creates, `x` closes or reopens, `o` opens in GitLab, and `r` refreshes.
 - `q` quits.
+
+Smart and assigned-epic boards use the five-stage workflow and support card moves. Persisted GitLab issue boards retain
+their actual remote lists, saved filters, ordering, and duplicate membership when an issue belongs to more than one
+list. They are deliberately read-only in this release: the TUI does not pretend a scoped GitLab list is interchangeable
+with the app's workflow labels. Open the item in GitLab for native-board changes.
+
+An epic board flattens the selected epic's accessible child hierarchy into actionable issue/task cards while preserving
+parent/depth context. The columns remain the same cross-project workflow stages, so an epic gives you a consistent
+delivery view without creating another GitLab board to maintain. GitLab tier/version or permissions can make epic
+discovery unavailable; the board switcher reports partial discovery failures while leaving the other sources usable.
 
 The cross-project board uses GitLab-compatible scoped labels: `workflow::ready`, `workflow::in progress`, and
 `workflow::review`. A move removes the previous workflow label, adds the destination label, and closes or reopens the
@@ -165,7 +181,8 @@ draws on [Executor](https://github.com/UsefulSoftwareCo/executor) for Effect-ori
 [OpenCode](https://github.com/anomalyco/opencode) for Bun/Nix packaging patterns, and
 [OpenTUI](https://github.com/anomalyco/opentui) for the renderer and Solid host.
 
-GitLab's current work-item direction is GraphQL and widget-based. The bootstrap uses the stable Issues REST API for a
-small, reliable live slice while keeping a provider-neutral `WorkItem` model that already represents epics, objectives,
-and key results. REST list responses are followed across every advertised page; a future API slice can adopt group
-`workItems` GraphQL without sacrificing complete organization coverage.
+GitLab's work-item direction is GraphQL and widget-based. This client uses bounded GraphQL connections for assigned
+epics, hierarchy traversal, and persisted-board snapshots, while retaining the stable Issues REST API for the personal
+smart queues and issue/task mutations. Every response is schema-decoded and terminal text is sanitized; pagination has
+aggregate page, item, byte, and operation-time limits. The provider-neutral `WorkItem` and `BoardSnapshot` domain
+models keep GitLab transport details out of the Solid UI.
