@@ -216,12 +216,18 @@ const rawGraphqlBoardList = ({
 
 const textStream = (value: string) => new Response(value).body
 
-const processResult = (stdout: unknown, stderr = "", exitCode = 0): GitLabSpawnResult => ({
+const processTextResult = (stdout: string, stderr = "", exitCode = 0): GitLabSpawnResult => ({
   exited: Promise.resolve(exitCode),
-  stdout: textStream(JSON.stringify(stdout)),
+  stdout: textStream(stdout),
   stderr: textStream(stderr),
   kill: vi.fn(),
 })
+
+const processResult = (stdout: unknown, stderr = "", exitCode = 0) =>
+  processTextResult(JSON.stringify(stdout), stderr, exitCode)
+
+const paginatedJsonProcessResult = (pages: readonly unknown[][]) =>
+  processTextResult(pages.map((page) => JSON.stringify(page)).join(""))
 
 const dependencies = (
   config: GitLabConfig,
@@ -1345,7 +1351,9 @@ describe("glab transport", () => {
     const calls: GitLabSpawnOptions[] = []
     const spawn = (options: GitLabSpawnOptions) => {
       calls.push(options)
-      return options.cmd[2] === "user" ? processResult(rawUser) : processResult([rawIssue(1), rawIssue(2)])
+      return options.cmd[2] === "user"
+        ? processResult(rawUser)
+        : paginatedJsonProcessResult([[rawIssue(1)], [rawIssue(2)]])
     }
     const client = makeGitLabClient(dependencies(config, { spawn }))
 
@@ -1368,10 +1376,79 @@ describe("glab transport", () => {
     })
   })
 
-  it("honors injected aggregate item and byte limits for glab pagination output", async () => {
+  it("decodes adjacent and merged paginated JSON arrays without splitting delimiters inside strings", async () => {
+    const config = gitLabConfigFromEnv({ GITLAB_HOST: "https://gitlab.example.com" })
+    const trickyIssue = rawIssue(2, String.raw`Keep ][ {braces} and an escaped "quote" \ intact`)
+    const pageOutput = ` ${JSON.stringify([rawIssue(1)])}\n${JSON.stringify([trickyIssue])} \n`
+    const spawn = (options: GitLabSpawnOptions) =>
+      options.cmd[2] === "user" ? processResult(rawUser) : processTextResult(pageOutput)
+    const client = makeGitLabClient(dependencies(config, { spawn }))
+
+    const workspace = await Effect.runPromise(client.loadWorkspace("assigned"))
+
+    expect(workspace.items.map((item) => item.id)).toEqual(["1", "2"])
+    expect(workspace.items[1]?.title).toBe(trickyIssue.title)
+
+    const mergedSpawn = (options: GitLabSpawnOptions) =>
+      options.cmd[2] === "user" ? processResult(rawUser) : processResult([rawIssue(1), rawIssue(2)])
+    const mergedClient = makeGitLabClient(dependencies(config, { spawn: mergedSpawn }))
+
+    await expect(Effect.runPromise(mergedClient.loadWorkspace("assigned"))).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: "1" }), expect.objectContaining({ id: "2" })],
+    })
+  })
+
+  it("accepts an empty array but rejects blank, malformed, non-array, and trailing paginated output", async () => {
+    const config = gitLabConfigFromEnv({ GITLAB_HOST: "https://gitlab.example.com" })
+    const loadWithOutput = (output: string) => {
+      const spawn = (options: GitLabSpawnOptions) =>
+        options.cmd[2] === "user" ? processResult(rawUser) : processTextResult(output)
+      return makeGitLabClient(dependencies(config, { spawn })).loadWorkspace("assigned")
+    }
+
+    await expect(Effect.runPromise(loadWithOutput("[]"))).resolves.toMatchObject({ items: [] })
+
+    const failures = await Promise.all(
+      (
+        [
+          ["\n", "empty response"],
+          [`${JSON.stringify([rawIssue(1)])}\n[not-json]`, "paginated page 2"],
+          [JSON.stringify(rawIssue(1)), "non-array result"],
+          [`${JSON.stringify([rawIssue(1)])} trailing`, "non-array result"],
+        ] as const
+      ).map(async ([output, expectedDetail]) => ({
+        error: await effectError(loadWithOutput(output)),
+        expectedDetail,
+      })),
+    )
+    for (const { error, expectedDetail } of failures) {
+      expect(error).toMatchObject({
+        kind: "invalid-response",
+        remediation: expect.stringContaining("GITLAB_TOKEN"),
+      })
+      expect(error.detail).toContain(expectedDetail)
+      expect(error.remediation).toContain("GitLab CLI output")
+      expect(error.remediation).not.toContain("compatible GitLab API")
+    }
+  })
+
+  it("honors injected page, aggregate item, and byte limits for glab pagination output", async () => {
     const config = gitLabConfigFromEnv({ GITLAB_HOST: "https://gitlab.example.com" })
     const spawn = (options: GitLabSpawnOptions) =>
-      options.cmd[2] === "user" ? processResult(rawUser) : processResult([rawIssue(1), rawIssue(2)])
+      options.cmd[2] === "user" ? processResult(rawUser) : paginatedJsonProcessResult([[rawIssue(1)], [rawIssue(2)]])
+    const pageLimited = makeGitLabClient(
+      dependencies(config, {
+        spawn,
+        limits: { maxPages: 1 },
+      }),
+    )
+
+    const pageError = await effectError(pageLimited.loadWorkspace("assigned"))
+
+    expect(pageError).toMatchObject({ kind: "invalid-response" })
+    expect(pageError.detail).toContain("1-page limit")
+    expect(pageError.detail).toContain("no partial results")
+
     const itemLimited = makeGitLabClient(
       dependencies(config, {
         spawn,

@@ -864,6 +864,96 @@ const stringFromCause = (cause: unknown) => {
   return safe.length > 600 ? `${safe.slice(0, 599)}…` : safe
 }
 
+const GLAB_OUTPUT_REMEDIATION = "Check the GitLab CLI output or set GITLAB_TOKEN to use the direct API, then retry."
+
+const malformedGlabJsonFailure = (cause: unknown, context = "") =>
+  new ClassifiedFailure(
+    "invalid-response",
+    `glab returned malformed JSON${context}: ${stringFromCause(cause)}`,
+    GLAB_OUTPUT_REMEDIATION,
+  )
+
+const parseGlabJson = (stdout: string) => {
+  try {
+    return sanitizeServerPayload(JSON.parse(stdout))
+  } catch (cause) {
+    throw malformedGlabJsonFailure(cause)
+  }
+}
+
+const isJsonWhitespace = (character: string | undefined) =>
+  character === " " || character === "\t" || character === "\n" || character === "\r"
+
+const jsonDocumentEnd = (stdout: string, start: number) => {
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < stdout.length; index += 1) {
+    const character = stdout[index]!
+    if (inString) {
+      if (escaped) escaped = false
+      else if (character === "\\") escaped = true
+      else if (character === '"') inString = false
+      continue
+    }
+    if (character === '"') inString = true
+    else if (character === "[" || character === "{") depth += 1
+    else if (character === "]" || character === "}") {
+      depth -= 1
+      if (depth === 0) return index + 1
+    }
+  }
+
+  return null
+}
+
+const parseGlabPaginatedJson = (stdout: string, maximumItems: number, maximumPages: number) => {
+  const items: unknown[] = []
+  let offset = 0
+  let page = 0
+
+  while (offset < stdout.length) {
+    while (isJsonWhitespace(stdout[offset])) offset += 1
+    if (offset >= stdout.length) break
+    page += 1
+    if (page > maximumPages)
+      throw new ClassifiedFailure(
+        "invalid-response",
+        `GitLab pagination exceeded the ${maximumPages}-page limit; no partial results were returned`,
+      )
+    if (stdout[offset] !== "[")
+      throw new ClassifiedFailure(
+        "invalid-response",
+        `glab returned a non-array result for paginated JSON page ${page}`,
+        GLAB_OUTPUT_REMEDIATION,
+      )
+
+    const end = jsonDocumentEnd(stdout, offset)
+    if (end === null)
+      throw malformedGlabJsonFailure(new SyntaxError("unterminated response"), ` for paginated page ${page}`)
+
+    let payload: unknown
+    try {
+      payload = sanitizeServerPayload(JSON.parse(stdout.slice(offset, end)))
+    } catch (cause) {
+      throw malformedGlabJsonFailure(cause, ` for paginated page ${page}`)
+    }
+    if (!Array.isArray(payload))
+      throw new ClassifiedFailure(
+        "invalid-response",
+        `glab returned a non-array result for paginated JSON page ${page}`,
+        GLAB_OUTPUT_REMEDIATION,
+      )
+    if (items.length + payload.length > maximumItems) throw paginationItemLimitFailure(maximumItems)
+    for (const item of payload) items.push(item)
+    offset = end
+  }
+
+  if (page === 0) throw malformedGlabJsonFailure(new SyntaxError("empty response"), " for pagination")
+  return items
+}
+
 const statusKind = (status: number): GitLabRequestErrorKind => {
   if (status === 401) return "authentication"
   if (status === 403) return "authorization"
@@ -1290,13 +1380,7 @@ const glabRequest = async (
           sanitizeGitLabInlineText(stdout).trim() ||
           `glab exited with ${exitCode}`,
       )
-    const payload = sanitizeServerPayload(JSON.parse(stdout))
-    if (paginate) {
-      if (!Array.isArray(payload))
-        throw new ClassifiedFailure("invalid-response", "glab returned a non-array result for a paginated list request")
-      if (payload.length > limits.maxPaginatedItems) throw paginationItemLimitFailure(limits.maxPaginatedItems)
-    }
-    return payload
+    return paginate ? parseGlabPaginatedJson(stdout, limits.maxPaginatedItems, limits.maxPages) : parseGlabJson(stdout)
   } catch (cause) {
     if (timeoutSignal.aborted && !effectSignal.aborted)
       throw new ClassifiedFailure("timeout", "glab timed out after 30 seconds")
@@ -1395,7 +1479,7 @@ const glabGraphqlRequest = async (
           `glab exited with ${exitCode}`,
       )
     return {
-      payload: sanitizeServerPayload(JSON.parse(stdout)),
+      payload: parseGlabJson(stdout),
       responseBytes: Buffer.byteLength(stdout),
     }
   } catch (cause) {

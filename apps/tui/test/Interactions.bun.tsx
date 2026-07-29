@@ -729,6 +729,34 @@ test("a failed load gives relevant recovery and r retries successfully", async (
   expect(attempts).toBe(2)
 })
 
+test("a malformed paginated glab response shows transport-specific recovery", async () => {
+  const load = deferred<Workspace>()
+  const setup = await testRender(
+    () => (
+      <App
+        gitLab={testGitLabRuntime({
+          loadWorkspace: () => load.promise,
+        })}
+      />
+    ),
+    { width: 88, height: 24 },
+  )
+  cleanup = () => setup.renderer.destroy()
+  await setup.renderOnce()
+  await setup.waitForFrame((frame) => frame.includes("Syncing My work"))
+
+  load.reject({
+    detail: "GitLab listIssues failed: glab returned malformed JSON for paginated page 2.",
+    remediation: "Check the GitLab CLI output or set GITLAB_TOKEN to use the direct API, then retry.",
+  })
+  await setup.waitForFrame((frame) => frame.includes("GitLab could not load this workspace"))
+
+  const frame = setup.captureCharFrame()
+  expect(frame).toContain("malformed JSON for paginated page 2")
+  expect(frame).toContain("GITLAB_TOKEN")
+  expect(frame).not.toContain("compatible GitLab API")
+})
+
 test("compact connection recovery keeps the retry key visible", async () => {
   const load = deferred<Workspace>()
   const setup = await testRender(
