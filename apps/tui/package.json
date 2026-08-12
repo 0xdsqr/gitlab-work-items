@@ -13,7 +13,7 @@
   "dependencies": {
     "@gitlab-work-items/domain": "workspace:0.1.0",
     "@gitlab-work-items/gitlab": "workspace:0.1.0",
-    "@opentui/core": "0.4.5",
+    "@opentui/core": "0.5.1",
     "@opentui/solid": "0.4.5",
     "effect": "4.0.0-beta.102",
     "solid-js": "1.9.12"
